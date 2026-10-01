@@ -1,0 +1,47 @@
+:root {
+  --bg: #f8f9fa;
+  --panel: #ffffff;
+  --border: #e2e5e9;
+  --text: #1f2933;
+  --accent: #1d4ed8;
+  --radius: 4px;
+  --status-normal: #2f9e44;
+  --status-warning: #f08c00;
+  --status-approval: #e03131;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  color: var(--text);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+}
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.shell-header {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  font-weight: 600;
+  color: var(--accent);
+}
+.shell-main {
+  flex: 1;
+  padding: 16px;
+}

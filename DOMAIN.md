@@ -90,9 +90,9 @@ Row 1-2 header: `ITEM | DESCRIPTION | QTY | UNIT | Unit Rate | Amount` (rate and
 6. Roles: **flat organisation for now, RBAC enforced later**. Recorded in DECISIONS D6.
 
 **Still open**
-7. Who receives the 80% warning in Chunk 11 (project owner, all members, or Admins)? Flat org suggests "all project members". -All
-8. Confirm the stack in DECISIONS D1. = 
-9. **What is a "cost head"?** The pack says 32; the workbook has 24 divisions (83 coded rows beneath them). Options: (a) the 24 divisions, (b) the 83 coded rows, (c) divisions as heads with coded rows as an optional later BoQ-line level. Recommendation: (a) for V1, so the 24 sheets become 24 cost heads and Chunk 05's seed file comes from `Collection (New Coding)`. Note this changes the "(32)" in CLAUDE.md. will confirm later
-10. **Which total is right?** 208,057 (new), 263,953.5 (legacy) or 264,153.5 (legend note)? Importer acceptance ("zero unexplained errors") needs the workbook reconciled first, or the 24 sheets accepted as the source of truth. workbook is a guide not single source of truth. kuwait follows NNN,NNN.NNN number system follow that total
-11. Fix the wrong code prefixes in Div 01/02/03 in the workbook, or have the importer key on sheet name? this could be a data issue will fix later
-12. Are the 8 empty divisions kept as zero-budget heads, or hidden until used? - the data shown here is a sample we need all 32 heads
+7. Who receives the 80% warning in Chunk 11 (project owner, all members, or Admins)? Flat org suggests "all project members". **All project members.** (D11)
+8. Stack in DECISIONS D1: **accepted**.
+9. **What is a "cost head"?** The pack says 32; the workbook has 24 divisions (83 coded rows beneath them). Options: (a) the 24 divisions, (b) the 83 coded rows, (c) divisions as heads with coded rows as an optional later BoQ-line level. Recommendation: (a) for V1, so the 24 sheets become 24 cost heads and Chunk 05's seed file comes from `Collection (New Coding)`. Note this changes the "(32)" in CLAUDE.md. **Deferred**: real list is 32 heads, to be supplied (D10).
+10. **Which total is right?** 208,057 (new), 263,953.5 (legacy) or 264,153.5 (legend note)? Importer acceptance ("zero unexplained errors") needs the workbook reconciled first, or the 24 sheets accepted as the source of truth. **Workbook is a guide, not the source of truth.** Kuwait format `NNN,NNN.NNN` is the display standard (D9).
+11. Fix the wrong code prefixes in Div 01/02/03 in the workbook, or have the importer key on sheet name? **Deferred**, treated as a data issue to fix later.
+12. Are the 8 empty divisions kept as zero-budget heads, or hidden until used? - **Sample data only. All 32 heads are needed** and will be supplied (D10).

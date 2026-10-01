@@ -1,6 +1,6 @@
 # DECISIONS
 
-Status: **PROPOSED**, pending review. Nothing here is built yet. Updated after domain Q&A (D3, D6, D8).
+Status: D1 stack **ACCEPTED** ("go ahead", Chunk 01 built on it). Other items as marked. Updated after domain Q&A and Chunk 01.
 
 ## D1. Stack (proposed)
 | Layer | Choice | Reason |
@@ -14,7 +14,7 @@ Status: **PROPOSED**, pending review. Nothing here is built yet. Updated after d
 | Tests | Vitest, plus Playwright for iPad viewport checks | Covers Chunks 1, 17, 18 |
 | Package manager | pnpm workspaces (`frontend`, `backend`, `shared`) | Single install, shared package |
 
-Repo was empty at Chunk 00, so there is no existing convention to follow. **Needs your confirmation or a swap before Chunk 01.**
+Repo was empty at Chunk 00, so there was no existing convention to follow. Accepted and built in Chunk 01. Resolved versions: Node 22, pnpm 12, TypeScript 5.9 (pinned, one version repo-wide), Fastify 5, Vite 7, React 19, Vitest 3, Zod 3.
 
 ## D2. Money
 Integer fils (1 KWD = 1000 fils), stored as `bigint`, handled in the app as `bigint`/safe integers. Never floats. Formatting to `KWD 1,234.567` happens once, at the UI edge, through the shared money helper. Multi-currency is out of scope for V1 unless the workbook shows otherwise (see Q3).
@@ -41,3 +41,15 @@ V1 treats the organisation as flat: all active users get the same working permis
 
 ## D8. Workbook as source and template (confirmed)
 The workbook is a template reused across projects. It is the source for cost-head seed data (a file in `database/seed/`, never in code). The importer reads columns A-F only, cached values only, and ignores scratch cells to the right (see DOMAIN 6.5). The cost-head level (24 divisions vs 83 coded rows) is open: DOMAIN Q9.
+
+## D9. Money representation in code (Chunk 01)
+`Fils` is a branded safe-integer `number` (max about 9 trillion KWD, ample). It is bigint only in PostgreSQL; repositories convert at the boundary and reject values beyond the safe range. All construction goes through `fils()` / `kdToFils()`, all display through `formatFils()` in `shared/money.ts`. Display format is Kuwait style `NNN,NNN.NNN` (confirmed): thousands separators, always 3 decimals. Parsing more than 3 decimals rounds half away from zero.
+
+## D10. Workbook is a guide, not the source of truth (confirmed)
+The 24-division sample is illustrative. The real list is **32 cost heads, to be supplied**. Cost-head level (DOMAIN Q9) and code-prefix fixes (Q11) are deferred until then. Chunk 05 must not seed from the workbook.
+
+## D11. Warnings go to all project members (confirmed)
+The 80% warning (Chunk 11) is sent to every member of the project.
+
+## D12. Repo conventions (Chunk 01)
+`@boq/shared` ships as TypeScript source and is bundled into the backend by tsup and compiled by Vite for the frontend, so there is no separate build order. Dependency install scripts are blocked except `esbuild` (`allowBuilds` in `pnpm-workspace.yaml`). Env values are validated once at startup; error text names the key and the kind of problem, never the value.

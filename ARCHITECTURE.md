@@ -24,7 +24,7 @@ almailem_boq/
     src/ pages/ components/ api/    # no business logic, no formulas
   database/
     migrations/  seed/              # seed holds the cost-head data file, never app code
-  tests/
+  tests/                   # cross-layer contract tests (workspace package @boq/tests)
 ```
 
 ## Dependency rules
