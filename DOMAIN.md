@@ -50,11 +50,11 @@ Role mapping to be agreed (Q6).
 | (pending) | ProjectEstimate.amount_fils | pending |
 
 ## 7. Open questions
-1. **Please provide the BoQ workbook** (.xlsx). Sections 6 and the Chunk 05 seed depend on it.
-2. Is the workbook one project or a template reused across projects?
-3. Currency: KWD only, or mixed?
-4. Are there sub-items under each of the 32 cost heads (true BoQ lines), or only head-level totals? This decides whether the domain needs a BoQ line level.
-5. Budget = 0 with spend: treat as 100% (approval required) or undefined?
-6. Role-to-permission mapping, especially Accountant versus Project Manager rights on estimates and expenses.
+1. **Please provide the BoQ workbook** (.xlsx). Sections 6 and the Chunk 05 seed depend on it. Attached
+2. Is the workbook one project or a template reused across projects? Template
+3. Currency: KWD only, or mixed? KWD only
+4. Are there sub-items under each of the 32 cost heads (true BoQ lines), or only head-level totals? This decides whether the domain needs a BoQ line level. - could be
+5. Budget = 0 with spend: treat as 100% (approval required) or undefined? yes
+6. Role-to-permission mapping, especially Accountant versus Project Manager rights on estimates and expenses. - flat organisation for now will enforce RBAC later
 7. Who is a "project admin" for the 80% warning in Chunk 11: project owner, or members with a given permission?
 8. Confirm stack in DECISIONS.md D1.
