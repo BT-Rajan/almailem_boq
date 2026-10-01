@@ -5,6 +5,11 @@ const envSchema = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  // mysql://user:password@host:3306/database (MariaDB). Optional until the app uses the database.
+  DATABASE_URL: z
+    .string()
+    .regex(/^(mysql|mariadb):\/\//)
+    .optional(),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173')

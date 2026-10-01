@@ -8,12 +8,17 @@
     "build": "tsc -p tsconfig.json && tsup",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "tsx src/db/cli.ts migrate",
+    "db:rollback": "tsx src/db/cli.ts rollback",
+    "db:status": "tsx src/db/cli.ts status",
+    "db:seed": "tsx src/db/cli.ts seed"
   },
   "dependencies": {
     "@boq/shared": "workspace:*",
     "@fastify/cors": "^11.0.0",
     "fastify": "^5.0.0",
+    "mysql2": "^3.24.5",
     "zod": "^3.25.0"
   },
   "devDependencies": {

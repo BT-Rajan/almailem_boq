@@ -14,7 +14,8 @@ almailem_boq/
         metrics/           # budgetMetrics({budget, actual}) - pure, no I/O, no thresholds
         control/           # calculateBudgetStatus, projectedStatus - pure, owns thresholds
         kpi/               # Chunk 14, built on metrics + control
-      repositories/        # the ONLY place SQL lives
+      db/                  # pool, migrator, seed loader, CLI, SQL helpers (DB tooling)
+      repositories/        # the ONLY place SQL lives (with db/); one thin repository per table
       services/            # orchestration, transactions
       routes/              # thin HTTP layer: validate > authorize > service
       query/               # shared search/filter/sort/pagination builder (Chunk 13)
@@ -23,7 +24,7 @@ almailem_boq/
   frontend/
     src/ pages/ components/ api/    # no business logic, no formulas
   database/
-    migrations/  seed/              # seed holds the cost-head data file, never app code
+    migrations/  seed/              # plain SQL up/down files; seed data files (never app code)
   tests/                   # cross-layer contract tests (workspace package @boq/tests)
 ```
 

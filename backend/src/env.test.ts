@@ -21,4 +21,14 @@ describe('loadEnv', () => {
     expect(attempt).toThrow(/LOG_LEVEL/);
     expect(attempt).not.toThrow(/super-secret-value/);
   });
+  it('accepts mysql:// and mariadb:// database URLs and rejects others', () => {
+    expect(loadEnv({ DATABASE_URL: 'mysql://u:p@127.0.0.1:3306/boq' }).DATABASE_URL).toContain(
+      'mysql://',
+    );
+    expect(loadEnv({ DATABASE_URL: 'mariadb://u:p@h/boq' }).DATABASE_URL).toContain('mariadb://');
+    expect(loadEnv({}).DATABASE_URL).toBeUndefined();
+    const attempt = () => loadEnv({ DATABASE_URL: 'postgres://u:topsecret@h/boq' });
+    expect(attempt).toThrow(/DATABASE_URL/);
+    expect(attempt).not.toThrow(/topsecret/);
+  });
 });

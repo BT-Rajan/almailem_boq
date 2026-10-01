@@ -1,0 +1,43 @@
+{
+  "permissions": [
+    {
+      "code": "admin.users.manage",
+      "description": "Create, edit, disable and assign roles to users"
+    },
+    { "code": "admin.roles.view", "description": "View roles and their permissions" },
+    { "code": "admin.costheads.manage", "description": "Manage the cost head master list" },
+    { "code": "admin.approvalrules.manage", "description": "Edit approval thresholds and rules" },
+    { "code": "admin.audit.view", "description": "View the audit trail" },
+    { "code": "project.create", "description": "Create projects" },
+    { "code": "project.edit", "description": "Edit projects" },
+    { "code": "project.view", "description": "View projects the user is a member of" },
+    { "code": "project.members.manage", "description": "Add and remove project members" },
+    { "code": "estimate.edit", "description": "Edit project estimates (budgets)" },
+    { "code": "expense.create", "description": "Record expenses and bills" },
+    { "code": "expense.reverse", "description": "Reverse an expense" },
+    { "code": "expense.view", "description": "View expenses" },
+    { "code": "approval.request", "description": "Request approval for over-budget spend" },
+    { "code": "approval.decide", "description": "Approve or reject over-budget spend" },
+    { "code": "report.view", "description": "View reports and dashboards" },
+    { "code": "report.export", "description": "Export reports" },
+    { "code": "import.run", "description": "Run Excel imports" }
+  ],
+  "roles": [
+    { "name": "Admin", "description": "Full access, including administration", "grant": "all" },
+    {
+      "name": "Project Manager",
+      "description": "Working access to projects, budgets and spend",
+      "grant": "all-except-admin"
+    },
+    {
+      "name": "Accountant",
+      "description": "Working access to projects, budgets and spend",
+      "grant": "all-except-admin"
+    },
+    {
+      "name": "Viewer",
+      "description": "Read-only access",
+      "grant": ["project.view", "expense.view", "report.view"]
+    }
+  ]
+}
