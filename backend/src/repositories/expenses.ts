@@ -1,4 +1,5 @@
-import { fils, type AttachmentType, type Fils } from '@boq/shared';
+import { fils, type AttachmentType, type EXPENSE_SORTS, type Fils } from '@boq/shared';
+import { runList, type ListInput, type ListSpec } from '../query/list';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
@@ -43,6 +44,8 @@ export type ExpensePatch = Partial<
 /** BIGINT money: a number when safe, a string when not, and fils() rejects the latter. */
 const money = (v: unknown): Fils => fils(Number(v));
 
+type ExpenseSort = (typeof EXPENSE_SORTS)[number];
+
 const map = (r: Row): ExpenseRecord => ({
   id: str(r, 'id'),
   projectId: str(r, 'project_id'),
@@ -70,10 +73,27 @@ const map = (r: Row): ExpenseRecord => ({
   createdAt: toDate(r['created_at']),
 });
 
-const SELECT = `SELECT e.*, h.code AS cost_head_code, h.name AS cost_head_name, u.name AS created_by_name
-  FROM expenses e
+const EXPENSE_COLUMNS =
+  'SELECT e.*, h.code AS cost_head_code, h.name AS cost_head_name, u.name AS created_by_name';
+const EXPENSE_FROM = `FROM expenses e
   JOIN cost_heads h ON h.id = e.cost_head_id
   JOIN users u ON u.id = e.created_by`;
+const SELECT = `${EXPENSE_COLUMNS} ${EXPENSE_FROM}`;
+
+const EXPENSE_LIST: ListSpec<ExpenseSort, 'costHeadId'> = {
+  select: EXPENSE_COLUMNS,
+  from: EXPENSE_FROM,
+  search: ['e.vendor', 'e.invoice_no', 'e.description'],
+  sorts: {
+    date: 'e.expense_date',
+    amount: 'e.amount_fils',
+    vendor: 'e.vendor',
+    invoice: 'e.invoice_no',
+  },
+  defaultSort: { key: 'date', dir: 'desc' },
+  tiebreaker: 'e.created_at DESC, e.id', // same date: newest entry first
+  filters: { costHeadId: 'e.cost_head_id' },
+};
 
 const COLUMNS = {
   costHeadId: 'cost_head_id',
@@ -144,28 +164,15 @@ export function expensesRepository(db: Db) {
         [a.key, a.type, a.size, a.name, id],
       );
     },
-    /** Newest first. Reversal entries are listed too, so the record is complete. */
-    async list(opts: {
-      projectId: string;
-      costHeadId?: string | undefined;
-      limit: number;
-      offset: number;
-    }): Promise<{ rows: ExpenseRecord[]; total: number }> {
-      const where = opts.costHeadId
-        ? 'e.project_id = ? AND e.cost_head_id = ?'
-        : 'e.project_id = ?';
-      const params = opts.costHeadId ? [opts.projectId, opts.costHeadId] : [opts.projectId];
-      const count = await selectOne(
-        db,
-        `SELECT COUNT(*) AS n FROM expenses e WHERE ${where}`,
-        params,
-      );
-      const rows = await selectRows(
-        db,
-        `${SELECT} WHERE ${where} ORDER BY e.expense_date DESC, e.created_at DESC, e.id LIMIT ? OFFSET ?`,
-        [...params, opts.limit, opts.offset],
-      );
-      return { rows: rows.map(map), total: Number(count?.['n'] ?? 0) };
+    /** A project's entries, reversals included, through the shared list builder. Newest first. */
+    async list(
+      projectId: string,
+      input: ListInput<ExpenseSort, 'costHeadId'>,
+    ): Promise<{ rows: ExpenseRecord[]; total: number }> {
+      const { rows, total } = await runList(db, EXPENSE_LIST, input, [
+        { sql: 'e.project_id = ?', params: [projectId] },
+      ]);
+      return { rows: rows.map(map), total };
     },
     /**
      * Actual per cost head: the sum of original expenses that have not been reversed.

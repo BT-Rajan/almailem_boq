@@ -1,23 +1,13 @@
-import { useCallback, useState } from 'react';
 import { listProjects } from '../../api/projects';
-import { useLoad } from '../../api/use-load';
 import { formatDate, statusLabel } from '../../components/format';
+import { Pager, SortHeader, useList } from '../../components/list';
 import { navigate } from '../../components/navigate';
 import { ErrorText } from '../../components/SlideOver';
 
-const PAGE_SIZE = 50;
-
 /** Only the projects the signed-in user may see; the server decides which. */
 export function ProjectsPage() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const load = useCallback(
-    () => listProjects({ search, page, pageSize: PAGE_SIZE }),
-    [search, page],
-  );
-  const { data, error, loading } = useLoad(load);
-  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
-
+  const list = useList(listProjects);
+  const { data } = list;
   return (
     <section className="panel">
       <div className="toolbar">
@@ -26,27 +16,24 @@ export function ProjectsPage() {
           type="search"
           placeholder="Search code or name"
           aria-label="Search projects"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          value={list.q}
+          onChange={(e) => list.setQ(e.target.value)}
         />
         <span className="spacer" />
         <a className="btn-primary button-link" href="#/projects/new">
           New project
         </a>
       </div>
-      <ErrorText message={error} />
+      <ErrorText message={list.error} />
       <table className="table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Status</th>
+            <SortHeader label="Code" sortKey="code" list={list} />
+            <SortHeader label="Name" sortKey="name" list={list} />
+            <SortHeader label="Status" sortKey="status" list={list} />
             <th>Owner</th>
-            <th>Start</th>
-            <th>End</th>
+            <SortHeader label="Start" sortKey="start" list={list} />
+            <SortHeader label="End" sortKey="end" list={list} />
           </tr>
         </thead>
         <tbody>
@@ -71,19 +58,13 @@ export function ProjectsPage() {
           )}
         </tbody>
       </table>
-      <div className="pager">
-        <span className="muted">{loading ? 'Loading…' : `${data?.total ?? 0} projects`}</span>
-        <span className="spacer" />
-        <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-          Previous
-        </button>
-        <span>
-          Page {page} of {pages}
-        </span>
-        <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-          Next
-        </button>
-      </div>
+      <Pager
+        data={data}
+        page={list.page}
+        setPage={list.setPage}
+        noun="projects"
+        loading={list.loading}
+      />
     </section>
   );
 }

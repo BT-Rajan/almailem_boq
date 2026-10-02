@@ -83,11 +83,7 @@ export function createUserAdminService(pool: DbPool) {
   return {
     async listUsers(query: ListUsersQuery): Promise<AdminUserPage> {
       const { page, pageSize } = query;
-      const { rows, total } = await usersRepository(pool).search({
-        search: query.search || undefined,
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      });
+      const { rows, total } = await usersRepository(pool).list(query);
       const roles = await userRolesRepository(pool).listForUsers(rows.map((u) => u.id));
       return {
         items: rows.map((u) => toAdminUser(u, roles.get(u.id) ?? [])),

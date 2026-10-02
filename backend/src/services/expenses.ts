@@ -119,12 +119,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
   }
 
   async function page(projectId: string, query: ListExpensesQuery): Promise<ExpensePage> {
-    const { rows, total } = await expensesRepository(pool).list({
-      projectId,
-      costHeadId: query.costHeadId,
-      limit: query.pageSize,
-      offset: (query.page - 1) * query.pageSize,
-    });
+    const { rows, total } = await expensesRepository(pool).list(projectId, query);
     return { items: rows.map(toExpense), total, page: query.page, pageSize: query.pageSize };
   }
 

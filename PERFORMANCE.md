@@ -38,3 +38,19 @@ Through the full HTTP stack (auth, session, JSON) on the pack's dataset, the med
 - **Same index elsewhere:** it also serves `actualsByHead` (BoQ, cost-head detail, projection), which filters on the same columns plus `cost_head_id`.
 - **`cost_heads` (32 rows) is scanned per project** for the deleted-head check. That is negligible at this size. If the master grows into the thousands, swap the join order or drop the check (heads are never deleted, D18).
 - **Estimates** use their clustered primary key `(project_id, cost_head_id)`.
+
+## Lists and global search (Chunk 13)
+
+Dataset: 100 projects x 32 heads x 100,000 expenses. Query only, median of 7.
+
+| Path | Time | Plan |
+|---|---|---|
+| Global search, member (50 projects) | 137 ms | `project_members` by user, then `ix_expenses_project_date` per visible project |
+| Global search, admin (all projects) | 207 ms | same, every project |
+| Expense list, one project, default date sort, page 1 | 12 ms | `ix_expenses_project_date` gives the order, no filesort |
+| Expense list, one project, sorted by amount | 8 ms | index range on `project_id`, small sort |
+
+### Notes
+
+- **Search matches "contains"** (`LIKE '%text%'`), which no B-tree index can seek. Every expense path therefore leads with `project_id`, so a search reads only the visible projects' entries. Full-text engines are out of scope for V1. If global search grows slow, the cheap step is prefix matching on codes and invoice numbers (`LIKE 'text%'` seeks `ix_expenses_project_invoice`).
+- **Migration 0012** adds `ix_expenses_project_invoice`, `ix_expenses_project_date` and `ix_projects_name`. A test checks that every search, filter and sort path has an index leading with its columns.

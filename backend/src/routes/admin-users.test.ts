@@ -236,7 +236,7 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
         roleIds: [MISSING],
       });
       expect(res.statusCode).toBe(404);
-      const list = await call(admin, 'GET', `/api/admin/users?search=${encodeURIComponent(email)}`);
+      const list = await call(admin, 'GET', `/api/admin/users?q=${encodeURIComponent(email)}`);
       expect(list.json().data.total).toBe(0);
     });
   });
@@ -353,15 +353,15 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
           password: NEW_PASSWORD,
         });
       }
-      const page1 = await call(admin, 'GET', `/api/admin/users?search=${tag}&pageSize=2`);
+      const page1 = await call(admin, 'GET', `/api/admin/users?q=${tag}&pageSize=2`);
       expect(page1.json().data).toMatchObject({ total: 3, page: 1, pageSize: 2 });
       expect(page1.json().data.items).toHaveLength(2);
-      const page2 = await call(admin, 'GET', `/api/admin/users?search=${tag}&pageSize=2&page=2`);
+      const page2 = await call(admin, 'GET', `/api/admin/users?q=${tag}&pageSize=2&page=2`);
       expect(page2.json().data.items).toHaveLength(1);
 
-      const pct = await call(admin, 'GET', `/api/admin/users?search=${encodeURIComponent('%')}`);
+      const pct = await call(admin, 'GET', `/api/admin/users?q=${encodeURIComponent('%')}`);
       expect(pct.json().data.total).toBe(0);
-      const underscore = await call(admin, 'GET', `/api/admin/users?search=${tag.slice(0, 3)}_`);
+      const underscore = await call(admin, 'GET', `/api/admin/users?q=${tag.slice(0, 3)}_`);
       expect(underscore.json().data.total).toBe(0);
     });
 

@@ -10,3 +10,4 @@ export * from './estimates';
 export * from './expenses';
 export * from './thresholds';
 export * from './dashboard';
+export * from './search';

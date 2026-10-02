@@ -1,6 +1,7 @@
 import { fils, type Fils } from '@boq/shared';
 import type { Db } from '../db/pool';
 import { selectOne, selectRows, type Row } from '../db/sql';
+import { andConditions, memberScope } from '../query/list';
 import { str } from './shared';
 
 /**
@@ -30,16 +31,6 @@ const PROJECT_FIGURES = `
     FROM projects p
    WHERE p.deleted_at IS NULL`;
 
-/** null = every project; otherwise only projects the user is a member of. */
-function scope(memberUserId: string | null): { sql: string; params: unknown[] } {
-  return memberUserId === null
-    ? { sql: '', params: [] }
-    : {
-        sql: ' AND EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)',
-        params: [memberUserId],
-      };
-}
-
 /** BIGINT sums: a number when safe, a string when not, and fils() rejects the latter. */
 const money = (v: unknown): Fils => fils(Number(v));
 
@@ -58,7 +49,7 @@ export function dashboardRepository(db: Db) {
     async summary(
       memberUserId: string | null,
     ): Promise<{ projects: number; budget: Fils; actual: Fils }> {
-      const s = scope(memberUserId);
+      const s = andConditions(memberScope('p.id', memberUserId));
       const row = await selectOne(
         db,
         `SELECT COUNT(*) AS projects,
@@ -76,7 +67,7 @@ export function dashboardRepository(db: Db) {
 
     /** Widget 2, the project table: budget and actual per project, by code. */
     async projectTotals(memberUserId: string | null): Promise<ProjectTotalsRow[]> {
-      const s = scope(memberUserId);
+      const s = andConditions(memberScope('p.id', memberUserId));
       const rows = await selectRows(db, `${PROJECT_FIGURES}${s.sql} ORDER BY p.code`, s.params);
       return rows.map((r: Row) => ({
         id: str(r, 'id'),

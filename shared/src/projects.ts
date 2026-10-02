@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listQuerySchema, type Page } from './list-query';
 
 /** Projects: details and members only. No money lives on a project (budgets are estimates, Chunk 07). */
 
@@ -74,14 +75,10 @@ export { DATE_ORDER_MESSAGE };
 
 export const changeProjectStatusRequestSchema = z.object({ status: projectStatusSchema }).strict();
 
-export const PROJECTS_PAGE_SIZE_MAX = 100;
-export const listProjectsQuerySchema = z
-  .object({
-    search: z.string().trim().max(100).optional(),
-    page: z.coerce.number().int().min(1).max(100_000).default(1),
-    pageSize: z.coerce.number().int().min(1).max(PROJECTS_PAGE_SIZE_MAX).default(50),
-  })
-  .strict();
+export const PROJECT_SORTS = ['code', 'name', 'status', 'start', 'end'] as const;
+export const listProjectsQuerySchema = listQuerySchema(PROJECT_SORTS, {
+  status: projectStatusSchema.optional(),
+});
 export type ListProjectsQuery = z.infer<typeof listProjectsQuerySchema>;
 
 export const projectIdParamsSchema = z.object({ projectId: z.string().uuid() });
@@ -102,12 +99,7 @@ export type ProjectSummary = {
   startDate: string | null;
   endDate: string | null;
 };
-export type ProjectPage = {
-  items: ProjectSummary[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+export type ProjectPage = Page<ProjectSummary>;
 
 export type ProjectDetail = ProjectSummary & {
   ownerUserId: string;

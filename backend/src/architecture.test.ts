@@ -14,11 +14,13 @@ function files(dir: string): string[] {
   );
 }
 
-describe('architecture: SQL lives only in repositories/ and db/', () => {
+describe('architecture: SQL lives only in repositories/, db/ and the list builder (query/)', () => {
   const outside = files(SRC)
     .map((f) => relative(SRC, f))
     .filter((f) => f.endsWith('.ts') && !isTestCode(f))
-    .filter((f) => !f.startsWith('repositories/') && !f.startsWith('db/'));
+    .filter(
+      (f) => !f.startsWith('repositories/') && !f.startsWith('db/') && !f.startsWith('query/'),
+    );
 
   it('has application code to check', () => {
     expect(outside.length).toBeGreaterThan(0);

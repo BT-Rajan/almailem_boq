@@ -73,9 +73,10 @@ export async function apiUpload<T>(path: string, file: File, nameHeader: string)
 }
 
 /** Build "?a=1&b=2", skipping empty values. */
-export function queryString(params: Record<string, string | number | undefined>): string {
+export function queryString(params: object): string {
   const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') q.set(k, String(v));
+  for (const [k, v] of Object.entries(params) as [string, unknown][])
+    if (v !== undefined && v !== '') q.set(k, String(v));
   const s = q.toString();
   return s ? `?${s}` : '';
 }

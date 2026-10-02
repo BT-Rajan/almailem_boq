@@ -4,7 +4,8 @@ import {
   type CostHeadDetail,
   type CreateExpenseRequest,
   type Expense,
-  type ExpensePage,
+  type EXPENSE_SORTS,
+  type ListParams,
   type UpdateExpenseRequest,
 } from '@boq/shared';
 import { api, apiUpload, queryString } from './client';
@@ -13,14 +14,14 @@ const base = (projectId: string) => `/api/projects/${encodeURIComponent(projectI
 const one = (projectId: string, id: string) =>
   `${base(projectId)}/expenses/${encodeURIComponent(id)}`;
 
-export const listExpenses = (
+export const getCostHeadDetail = (
   projectId: string,
-  p: { costHeadId?: string; page?: number; pageSize?: number },
-) => api<ExpensePage>('GET', `${base(projectId)}/expenses${queryString(p)}`);
-export const getCostHeadDetail = (projectId: string, costHeadId: string, page = 1) =>
+  costHeadId: string,
+  p: ListParams<(typeof EXPENSE_SORTS)[number]>,
+) =>
   api<CostHeadDetail>(
     'GET',
-    `${base(projectId)}/cost-heads/${encodeURIComponent(costHeadId)}${queryString({ page })}`,
+    `${base(projectId)}/cost-heads/${encodeURIComponent(costHeadId)}${queryString(p)}`,
   );
 export const createExpense = (projectId: string, body: CreateExpenseRequest) =>
   api<Expense>('POST', `${base(projectId)}/expenses`, body);

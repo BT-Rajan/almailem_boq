@@ -45,7 +45,7 @@ describe('Projects list', () => {
     expect(screen.getByText('Active')).toBeTruthy();
     expect(screen.getByText('31/01/2026')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Search projects'), { target: { value: 'tow' } });
-    await waitFor(() => expect(calls.at(-1)?.url).toContain('search=tow'));
+    await waitFor(() => expect(calls.at(-1)?.url).toContain('q=tow'));
   });
 });
 

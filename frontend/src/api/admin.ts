@@ -4,16 +4,18 @@ import type {
   AdminUserPage,
   CostHead,
   CreateCostHeadRequest,
+  ListParams,
   CreateUserRequest,
   ProjectRef,
   RoleWithPermissions,
   UpdateCostHeadRequest,
+  USER_SORTS,
 } from '@boq/shared';
 import { api, queryString } from './client';
 
 const user = (id: string) => `/api/admin/users/${encodeURIComponent(id)}`;
 
-export const listUsers = (p: { search?: string; page?: number; pageSize?: number }) =>
+export const listUsers = (p: ListParams<(typeof USER_SORTS)[number]>) =>
   api<AdminUserPage>('GET', `/api/admin/users${queryString(p)}`);
 export const getUser = (id: string) => api<AdminUserDetail>('GET', user(id));
 export const createUser = (body: CreateUserRequest) =>

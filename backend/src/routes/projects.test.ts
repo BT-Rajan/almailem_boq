@@ -189,18 +189,17 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       await newProject(pm, { code: `${tag}-B`, name: 'Beta' });
       const theirs = await newProject(outsider, { code: `${tag}-C`, name: 'Gamma' });
 
-      const pmList = (await call(pm, 'GET', `/api/projects?search=${tag}`)).json().data;
+      const pmList = (await call(pm, 'GET', `/api/projects?q=${tag}`)).json().data;
       expect(pmList.items.map((p: { code: string }) => p.code)).toEqual([`${tag}-A`, `${tag}-B`]);
-      const adminList = (await call(admin, 'GET', `/api/projects?search=${tag}`)).json().data;
+      const adminList = (await call(admin, 'GET', `/api/projects?q=${tag}`)).json().data;
       expect(adminList.total).toBe(3);
 
-      const page2 = (
-        await call(admin, 'GET', `/api/projects?search=${tag}&pageSize=2&page=2`)
-      ).json().data;
+      const page2 = (await call(admin, 'GET', `/api/projects?q=${tag}&pageSize=2&page=2`)).json()
+        .data;
       expect(page2).toMatchObject({ total: 3, page: 2, pageSize: 2 });
       expect(page2.items.map((p: { id: string }) => p.id)).toEqual([theirs.id]);
 
-      const byName = (await call(pm, 'GET', '/api/projects?search=alpha')).json().data;
+      const byName = (await call(pm, 'GET', '/api/projects?q=alpha')).json().data;
       expect(byName.items.map((p: { id: string }) => p.id)).toContain(mine.id);
       const summary = pmList.items[0];
       expect(Object.keys(summary).sort()).toEqual(
@@ -210,8 +209,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
 
     it('treats % literally and rejects bad paging', async () => {
       expect(
-        (await call(pm, 'GET', `/api/projects?search=${encodeURIComponent('%')}`)).json().data
-          .total,
+        (await call(pm, 'GET', `/api/projects?q=${encodeURIComponent('%')}`)).json().data.total,
       ).toBe(0);
       expect((await call(pm, 'GET', '/api/projects?pageSize=1000')).statusCode).toBe(400);
       expect((await call(pm, 'GET', '/api/projects?orderBy=code')).statusCode).toBe(400);
@@ -221,7 +219,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       const p = await newProject();
       await call(pm, 'PUT', `/api/projects/${p.id}/members/${viewerUser.id}`);
       const has = async () =>
-        (await call(viewer, 'GET', `/api/projects?search=${p.code}`)).json().data.total;
+        (await call(viewer, 'GET', `/api/projects?q=${p.code}`)).json().data.total;
       expect(await has()).toBe(1);
       await call(pm, 'DELETE', `/api/projects/${p.id}/members/${viewerUser.id}`);
       expect(await has()).toBe(0);
@@ -302,7 +300,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect((await call(admin, 'DELETE', `/api/projects/${p.id}`)).statusCode).toBe(200);
       expect((await call(pm, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(403);
       expect((await call(admin, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(403);
-      expect((await call(pm, 'GET', `/api/projects?search=${p.code}`)).json().data.total).toBe(0);
+      expect((await call(pm, 'GET', `/api/projects?q=${p.code}`)).json().data.total).toBe(0);
       expect((await audit(p.id)).at(-1)?.event).toBe('project.deleted');
     });
   });

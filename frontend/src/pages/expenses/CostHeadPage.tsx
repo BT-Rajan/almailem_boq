@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
-import { formatFils, type Expense } from '@boq/shared';
+import { formatFils, type EXPENSE_SORTS, type Expense, type ListParams } from '@boq/shared';
 import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
-import { useLoad } from '../../api/use-load';
 import { formatDate } from '../../components/format';
 import { Figures } from '../../components/Figures';
+import { Pager, SortHeader, useList } from '../../components/list';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { ExpenseForm, ReverseForm } from './ExpenseForm';
 
@@ -13,11 +13,11 @@ type Panel =
 /** One cost head of a project: its figures (from the server) and every expense on it. */
 export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
   const { projectId, costHeadId } = props;
-  const [page, setPage] = useState(1);
-  const detail = useLoad(
+  const detail = useList(
     useCallback(
-      () => getCostHeadDetail(projectId, costHeadId, page),
-      [projectId, costHeadId, page],
+      (p: ListParams<(typeof EXPENSE_SORTS)[number]>) =>
+        getCostHeadDetail(projectId, costHeadId, p),
+      [projectId, costHeadId],
     ),
   );
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -30,7 +30,6 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
   const d = detail.data;
   if (!d) return <ErrorText message={detail.error} />;
   const m = d.metrics;
-  const pages = Math.max(1, Math.ceil(d.expenses.total / d.expenses.pageSize));
 
   return (
     <section className="panel">
@@ -56,10 +55,10 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
       <table className="table money">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Vendor</th>
-            <th>Invoice</th>
-            <th className="num">Amount</th>
+            <SortHeader label="Date" sortKey="date" list={detail} />
+            <SortHeader label="Vendor" sortKey="vendor" list={detail} />
+            <SortHeader label="Invoice" sortKey="invoice" list={detail} />
+            <SortHeader label="Amount" sortKey="amount" list={detail} className="num" />
             <th>Description</th>
             <th>Bill</th>
             <th>By</th>
@@ -118,19 +117,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
           )}
         </tbody>
       </table>
-      <div className="pager">
-        <span className="muted">{d.expenses.total} entries</span>
-        <span className="spacer" />
-        <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-          Previous
-        </button>
-        <span>
-          Page {page} of {pages}
-        </span>
-        <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-          Next
-        </button>
-      </div>
+      <Pager data={d.expenses} page={detail.page} setPage={detail.setPage} noun="entries" />
 
       {panel && (
         <SlideOver

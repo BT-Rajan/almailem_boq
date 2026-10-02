@@ -37,7 +37,7 @@ describe('Users page', () => {
     expect(screen.getByText('Active')).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'ad%a' } });
-    await waitFor(() => expect(calls.at(-1)?.url).toContain('search=ad%25a'));
+    await waitFor(() => expect(calls.at(-1)?.url).toContain('q=ad%25a'));
     expect(calls.at(-1)?.url).toContain('page=1');
   });
 

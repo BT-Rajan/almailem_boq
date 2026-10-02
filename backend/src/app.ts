@@ -16,6 +16,7 @@ import { registerEstimateRoutes } from './routes/estimates';
 import { registerExpenseRoutes } from './routes/expenses';
 import { registerHealthRoute } from './routes/health';
 import { registerProjectRoutes } from './routes/projects';
+import { registerSearchRoutes } from './routes/search';
 
 export type AppDeps = {
   /** Required for everything except health. Without it only the public health route exists. */
@@ -46,6 +47,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     registerAdminCostHeadRoutes(app, { pool: deps.pool });
     registerProjectRoutes(app, { pool: deps.pool });
     registerDashboardRoutes(app, { pool: deps.pool });
+    registerSearchRoutes(app, { pool: deps.pool });
     registerEstimateRoutes(app, { pool: deps.pool });
     registerAdminThresholdRoutes(app, { pool: deps.pool });
     registerExpenseRoutes(app, {

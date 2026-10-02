@@ -192,3 +192,18 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
 - **Project page header:** the BoQ tab opens with the project figures (Budget, Actual, Remaining, Used, Status) above the cost-head table. "Needs attention first" asks the server for `?order=attention`: heads needing approval, then warning, then the rest, keeping display order within each. The ranking lives in `domain/control` (`byUrgency`), because it is about what the statuses mean.
 - **Performance:** migration 0011 adds a covering index on expenses and the queries were reshaped after EXPLAIN showed a full scan at scale. Details and EXPLAIN output in PERFORMANCE.md. The pack's 300 ms target is checked by a test on 100 projects x 32 heads x 5,000 expenses.
 - **Shared figures strip:** `Figures` is one component, used by the dashboard, the project header and the cost-head page (it replaced the copy in the cost-head page).
+
+## D24. Search, filter, sort and pagination (Chunk 13, review these)
+- **One pattern, three layers:**
+  - `shared/src/list-query.ts`: `listQuerySchema(sorts, filters)` gives `q`, `sort` (allow-listed), `dir` (`asc`/`desc`), `page`, `pageSize` (at most 100) and allow-listed filters. It is strict, so any other query parameter is a 400.
+  - `backend/src/query/list.ts`: `runList(db, spec, input, conditions)` builds count and page queries from a fixed SQL spec written in a repository, checks the sort key again (own keys only, so `__proto__` cannot sneak through), binds every value, and appends a unique tiebreaker so paging is stable. `memberScope` is the single "projects this user may see" condition, now also used by the dashboard and global search.
+  - `frontend/src/components/list.tsx`: `useList` (search text with a typing pause, sort, page), `SortHeader` and `Pager`.
+- **Adopted** by Users (sort by created, name, email), Projects (code, name, status, start, end; filter by status) and the cost-head expense list (date, amount, vendor, invoice). The three hand-written repository searches and the three copied pagers were deleted. The list query parameter is now `q`, not `search`. The cost-head admin list is not paged (it is the full ordered master), and the user picker keeps its 20-result lookup.
+- **Global search** (`GET /api/search?q=`, at least 2 characters) returns up to 8 of each: projects, cost heads, invoices, vendors (with how many expenses and projects) and expenses (by description). Everything project-scoped passes through `memberScope`, and administrators see all (D17). Reversal entries and deleted projects are left out. It is the header search box.
+- **The architecture rule for SQL** now reads: repositories/, db/ and the list builder (query/).
+- **Acceptance "net lines of code decrease after adoption" is not met:**
+  - Adoption removed 47 lines from the files that adopted it.
+  - The shared pattern is 264 lines: builder 106, schema factory and types 60, hook and components 98.
+  - The three lists it replaced were already short, and the pattern adds sorting and filters they did not have. The saving comes as more lists adopt it (reports in Chunk 14, the audit viewer in Chunk 16).
+  - Whole codebase: 7,656 to 8,049 source lines, including the new global search.
+- **Performance and indexes:** migration 0012 and PERFORMANCE.md.

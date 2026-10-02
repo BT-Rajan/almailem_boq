@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { BudgetMetrics, BoqCostHead } from './budget';
 import type { BudgetStatus } from './control';
 import type { Fils } from './money';
+import { listQuerySchema, type Page } from './list-query';
 import { isoDateSchema } from './projects';
 
 /** Expenses (bills). Money is integer fils. Delete means reverse: a linked negative entry. */
@@ -48,14 +49,10 @@ export const reverseExpenseRequestSchema = z
   .strict();
 export type ReverseExpenseRequest = z.infer<typeof reverseExpenseRequestSchema>;
 
-export const EXPENSES_PAGE_SIZE_MAX = 100;
-export const listExpensesQuerySchema = z
-  .object({
-    costHeadId: z.string().uuid().optional(),
-    page: z.coerce.number().int().min(1).max(100_000).default(1),
-    pageSize: z.coerce.number().int().min(1).max(EXPENSES_PAGE_SIZE_MAX).default(50),
-  })
-  .strict();
+export const EXPENSE_SORTS = ['date', 'amount', 'vendor', 'invoice'] as const;
+export const listExpensesQuerySchema = listQuerySchema(EXPENSE_SORTS, {
+  costHeadId: z.string().uuid().optional(),
+});
 export type ListExpensesQuery = z.infer<typeof listExpensesQuerySchema>;
 
 export const expenseParamsSchema = z.object({
@@ -84,7 +81,7 @@ export type Expense = {
   /** Set on an expense that has been reversed. */
   reversedAt: string | null;
 };
-export type ExpensePage = { items: Expense[]; total: number; page: number; pageSize: number };
+export type ExpensePage = Page<Expense>;
 
 /** One cost head of one project: its figures (from domain/metrics) and its expenses. */
 export type CostHeadDetail = {

@@ -22,7 +22,7 @@ almailem_boq/
       services/            # orchestration, transactions (user-admin: users, roles, project access)
       cli/                 # operator tools (bootstrap-admin)
       routes/              # thin HTTP layer: validate > authorize > service
-      query/               # shared search/filter/sort/pagination builder (Chunk 13)
+      query/               # runList: the one search/filter/sort/page builder; memberScope
       import/              # parser > validator > mapper > committer (isolated, Chunk 15)
       notify/              # notify() single entry point
   frontend/

@@ -74,12 +74,7 @@ export function createProjectService(pool: DbPool) {
       query: ListProjectsQuery,
     ): Promise<ProjectPage> {
       const { page, pageSize } = query;
-      const { rows, total } = await projectsRepository(pool).search({
-        memberUserId: scope.memberUserId,
-        search: query.search || undefined,
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      });
+      const { rows, total } = await projectsRepository(pool).list(scope.memberUserId, query);
       return {
         items: rows.map((p) => ({
           id: p.id,

@@ -1,11 +1,9 @@
 import { useCallback, useState } from 'react';
 import type { AdminUser } from '@boq/shared';
 import { listUsers } from '../../api/admin';
-import { useLoad } from '../../api/use-load';
+import { Pager, SortHeader, useList } from '../../components/list';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { CreateUserForm, UserDetail } from './UserPanel';
-
-const PAGE_SIZE = 50;
 
 function statusLabel(u: AdminUser): string {
   if (u.disabled) return 'Disabled';
@@ -13,15 +11,12 @@ function statusLabel(u: AdminUser): string {
 }
 
 export function UsersPage() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
   const [panel, setPanel] = useState<{ mode: 'create' } | { mode: 'edit'; id: string } | null>(
     null,
   );
 
-  const load = useCallback(() => listUsers({ search, page, pageSize: PAGE_SIZE }), [search, page]);
-  const { data, error, loading, reload } = useLoad(load);
-  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const list = useList(listUsers);
+  const { data, error, loading, reload } = list;
 
   const close = useCallback(() => setPanel(null), []);
 
@@ -33,11 +28,8 @@ export function UsersPage() {
           type="search"
           placeholder="Search name or email"
           aria-label="Search users"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          value={list.q}
+          onChange={(e) => list.setQ(e.target.value)}
         />
         <span className="spacer" />
         <button type="button" className="btn-primary" onClick={() => setPanel({ mode: 'create' })}>
@@ -48,8 +40,8 @@ export function UsersPage() {
       <table className="table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
+            <SortHeader label="Name" sortKey="name" list={list} />
+            <SortHeader label="Email" sortKey="email" list={list} />
             <th>Roles</th>
             <th>Status</th>
           </tr>
@@ -78,19 +70,7 @@ export function UsersPage() {
           )}
         </tbody>
       </table>
-      <div className="pager">
-        <span className="muted">{loading ? 'Loading…' : `${data?.total ?? 0} users`}</span>
-        <span className="spacer" />
-        <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-          Previous
-        </button>
-        <span>
-          Page {page} of {pages}
-        </span>
-        <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-          Next
-        </button>
-      </div>
+      <Pager data={data} page={list.page} setPage={list.setPage} noun="users" loading={loading} />
 
       {panel && (
         <SlideOver title={panel.mode === 'create' ? 'New user' : 'User'} onClose={close}>

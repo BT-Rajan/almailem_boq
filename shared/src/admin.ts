@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { listQuerySchema, type Page } from './list-query';
 
 /** Administration > Users and Roles. Request schemas validate on the server; response types type the UI. */
 
@@ -21,15 +22,8 @@ export type CreateUserInput = z.infer<typeof createUserRequestSchema>;
 export const setUserDisabledRequestSchema = z.object({ disabled: z.boolean() }).strict();
 export type SetUserDisabledRequest = z.infer<typeof setUserDisabledRequestSchema>;
 
-export const USERS_PAGE_SIZE_MAX = 100;
-
-export const listUsersQuerySchema = z
-  .object({
-    search: z.string().trim().max(100).optional(),
-    page: z.coerce.number().int().min(1).max(100_000).default(1),
-    pageSize: z.coerce.number().int().min(1).max(USERS_PAGE_SIZE_MAX).default(50),
-  })
-  .strict();
+export const USER_SORTS = ['created', 'name', 'email'] as const;
+export const listUsersQuerySchema = listQuerySchema(USER_SORTS);
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 
 export const userIdParamsSchema = z.object({ userId: z.string().uuid() });
@@ -58,12 +52,7 @@ export type AdminUser = {
 
 export type AdminUserDetail = AdminUser & { projects: ProjectRef[] };
 
-export type AdminUserPage = {
-  items: AdminUser[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+export type AdminUserPage = Page<AdminUser>;
 
 export type RoleWithPermissions = {
   id: string;

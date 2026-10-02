@@ -1,5 +1,7 @@
 import type {
   CreateProjectRequest,
+  ListParams,
+  PROJECT_SORTS,
   ProjectDetail,
   ProjectMember,
   ProjectPage,
@@ -11,7 +13,7 @@ import { api, queryString } from './client';
 
 const project = (id: string) => `/api/projects/${encodeURIComponent(id)}`;
 
-export const listProjects = (p: { search?: string; page?: number; pageSize?: number }) =>
+export const listProjects = (p: ListParams<(typeof PROJECT_SORTS)[number]>) =>
   api<ProjectPage>('GET', `/api/projects${queryString(p)}`);
 export const getProject = (id: string) => api<ProjectDetail>('GET', project(id));
 export const createProject = (body: CreateProjectRequest) =>

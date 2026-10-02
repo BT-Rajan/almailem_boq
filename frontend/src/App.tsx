@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
+import { GlobalSearch } from './components/GlobalSearch';
 import { LoginPage } from './pages/LoginPage';
 import { ApprovalRulesPage } from './pages/admin/ApprovalRulesPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -95,6 +96,7 @@ export function App() {
               ))}
             </nav>
             <span className="spacer" />
+            <GlobalSearch />
             <span className="muted">{session.user.name}</span>
             <button
               type="button"
