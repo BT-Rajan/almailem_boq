@@ -12,6 +12,7 @@ import {
 } from '../../api/projects';
 import { attempt, useLoad } from '../../api/use-load';
 import { BoqTable } from '../../components/BoqTable';
+import { Figures } from '../../components/Figures';
 import { formatDate, statusLabel } from '../../components/format';
 import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
@@ -127,7 +128,13 @@ export function ProjectPage(props: { id: string }) {
 
 function Boq(props: { projectId: string }) {
   const { projectId } = props;
-  const boq = useLoad(useCallback(() => getBoq(projectId), [projectId]));
+  const [attentionFirst, setAttentionFirst] = useState(false);
+  const boq = useLoad(
+    useCallback(
+      () => getBoq(projectId, attentionFirst ? 'attention' : 'display'),
+      [projectId, attentionFirst],
+    ),
+  );
   const [editing, setEditing] = useState<BoqRow | null>(null);
   const [adding, setAdding] = useState(false);
   const close = useCallback(() => setEditing(null), []);
@@ -135,7 +142,16 @@ function Boq(props: { projectId: string }) {
   if (!boq.data) return <ErrorText message={boq.error} />;
   return (
     <>
+      <Figures metrics={boq.data.total} status={boq.data.totalStatus} label="Project figures" />
       <div className="row boq-actions">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={attentionFirst}
+            onChange={(e) => setAttentionFirst(e.target.checked)}
+          />
+          Needs attention first
+        </label>
         <span className="spacer" />
         {boq.data.editable && (
           <button type="button" className="btn-primary" onClick={() => setAdding(true)}>

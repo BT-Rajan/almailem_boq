@@ -1,8 +1,14 @@
-import { fils, projectStatusSchema, type ProjectBoq, type SetEstimatesRequest } from '@boq/shared';
+import {
+  fils,
+  projectStatusSchema,
+  type BoqOrder,
+  type ProjectBoq,
+  type SetEstimatesRequest,
+} from '@boq/shared';
 import { recordAudit, type AuditActor } from '../audit/record-audit';
 import type { Db, DbPool } from '../db/pool';
 import { withTransaction } from '../db/transaction';
-import { calculateBudgetStatus } from '../domain/control';
+import { byUrgency, calculateBudgetStatus } from '../domain/control';
 import { budgetMetrics, totalMetrics } from '../domain/metrics';
 import { acceptsFinancialChanges } from '../domain/project-status';
 import { AppError } from '../errors/app-error';
@@ -28,7 +34,11 @@ async function requireProject(db: Db, id: string) {
  * The project's figures per cost head and in total. The BoQ table and the cost-head detail both
  * read this, so they always agree.
  */
-export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
+export async function loadBoq(
+  db: Db,
+  projectId: string,
+  order: BoqOrder = 'display',
+): Promise<ProjectBoq> {
   const project = await requireProject(db, projectId);
   const [heads, budgets, actuals, thresholds] = await Promise.all([
     costHeadsRepository(db).list({ includeInactive: true }),
@@ -45,15 +55,16 @@ export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
     figures: { budget: budgets.get(h.id) ?? fils(0), actual: actuals.get(h.id) ?? fils(0) },
   }));
   const total = totalMetrics(lines.map((l) => l.figures));
+  const rows = lines.map(({ head, figures }) => {
+    const metrics = budgetMetrics(figures);
+    return {
+      costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+      metrics,
+      status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
+    };
+  });
   return {
-    rows: lines.map(({ head, figures }) => {
-      const metrics = budgetMetrics(figures);
-      return {
-        costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
-        metrics,
-        status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
-      };
-    }),
+    rows: order === 'attention' ? byUrgency(rows, (r) => r.status) : rows,
     total,
     totalStatus: calculateBudgetStatus(total.utilisationBp, thresholds),
     editable: acceptsFinancialChanges(project.status),
@@ -62,8 +73,8 @@ export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
 
 export function createEstimateService(pool: DbPool) {
   return {
-    getBoq(projectId: string): Promise<ProjectBoq> {
-      return loadBoq(pool, projectId);
+    getBoq(projectId: string, order: BoqOrder = 'display'): Promise<ProjectBoq> {
+      return loadBoq(pool, projectId, order);
     },
 
     /**

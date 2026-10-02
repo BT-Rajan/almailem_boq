@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { okResponse, projectIdParamsSchema, setEstimatesRequestSchema } from '@boq/shared';
+import {
+  boqQuerySchema,
+  okResponse,
+  projectIdParamsSchema,
+  setEstimatesRequestSchema,
+} from '@boq/shared';
 import { currentActor } from '../auth/guards';
 import type { DbPool } from '../db/pool';
 import { createEstimateService } from '../services/estimates';
@@ -14,7 +19,8 @@ export function registerEstimateRoutes(app: FastifyInstance, deps: { pool: DbPoo
     { onRequest: [authenticate, authorize('project.view'), authorizeProjectAccess()] },
     async (request) => {
       const { projectId } = projectIdParamsSchema.parse(request.params);
-      return okResponse(await service.getBoq(projectId));
+      const { order } = boqQuerySchema.parse(request.query);
+      return okResponse(await service.getBoq(projectId, order));
     },
   );
 

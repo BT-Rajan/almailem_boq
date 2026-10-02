@@ -46,3 +46,14 @@ export function projectedStatus(
   });
   return { metrics, status: calculateBudgetStatus(metrics.utilisationBp, thresholds) };
 }
+
+/** Most urgent first: approval needed, then warning, then normal. For "needs attention first" lists. */
+const URGENCY: Record<BudgetStatus, number> = { APPROVAL_REQUIRED: 0, WARNING: 1, NORMAL: 2 };
+
+/** Stable: items with the same status keep their order. */
+export function byUrgency<T>(items: readonly T[], statusOf: (item: T) => BudgetStatus): T[] {
+  return items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => URGENCY[statusOf(a.item)] - URGENCY[statusOf(b.item)] || a.i - b.i)
+    .map((x) => x.item);
+}

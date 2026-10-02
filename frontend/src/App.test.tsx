@@ -25,16 +25,19 @@ describe('App shell', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
   });
 
-  it('opens on the projects list, with the administration pages in the nav', async () => {
+  it('opens on the dashboard, with projects and administration in the nav', async () => {
     window.location.hash = '';
+    const zero = { budget: 0, actual: 0, remaining: 0, utilisationBp: 0 };
     mockApi({
       'GET /api/auth/me': () => ({ data: session }),
-      'GET /api/projects': () => ({ data: { items: [], total: 0, page: 1, pageSize: 50 } }),
+      'GET /api/dashboard': () => ({
+        data: { summary: { projects: 0, metrics: zero, status: 'NORMAL' }, projects: [] },
+      }),
     });
     render(<App />);
     expect(await screen.findByText('Ada Admin')).toBeTruthy();
-    for (const name of ['Projects', 'Users', 'Roles', 'Cost heads'])
+    for (const name of ['Dashboard', 'Projects', 'Users', 'Roles', 'Cost heads', 'Approval rules'])
       expect(screen.getByRole('link', { name })).toBeTruthy();
-    expect(await screen.findByText('No projects found')).toBeTruthy();
+    expect(await screen.findByText('No projects yet')).toBeTruthy();
   });
 });

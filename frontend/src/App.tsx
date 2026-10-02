@@ -3,6 +3,7 @@ import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
 import { LoginPage } from './pages/LoginPage';
 import { ApprovalRulesPage } from './pages/admin/ApprovalRulesPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { CostHeadsPage } from './pages/admin/CostHeadsPage';
 import { CostHeadPage } from './pages/expenses/CostHeadPage';
 import { RolesPage } from './pages/admin/RolesPage';
@@ -11,8 +12,9 @@ import { CreateProjectPage } from './pages/projects/CreateProjectPage';
 import { ProjectPage } from './pages/projects/ProjectPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 
-/** Top navigation. Projects first; Administration pages after. */
+/** Top navigation. Dashboard (home) and Projects first; Administration pages after. */
 const NAV = [
+  { href: '#/dashboard', label: 'Dashboard' },
   { href: '#/projects', label: 'Projects' },
   { href: '#/admin/users', label: 'Users' },
   { href: '#/admin/roles', label: 'Roles' },
@@ -44,6 +46,8 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
   switch (hash) {
     case '#/projects/new':
       return { nav: '#/projects', page: <CreateProjectPage /> };
+    case '#/projects':
+      return { nav: hash, page: <ProjectsPage /> };
     case '#/admin/users':
       return { nav: hash, page: <UsersPage /> };
     case '#/admin/roles':
@@ -53,7 +57,7 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
     case '#/admin/approval-rules':
       return { nav: hash, page: <ApprovalRulesPage /> };
     default:
-      return { nav: '#/projects', page: <ProjectsPage /> };
+      return { nav: '#/dashboard', page: <DashboardPage /> };
   }
 }
 

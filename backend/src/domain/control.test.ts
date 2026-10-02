@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fils, MoneyError, type BudgetStatus, type Thresholds } from '@boq/shared';
-import { calculateBudgetStatus, checkThresholds, projectedStatus } from './control';
+import { byUrgency, calculateBudgetStatus, checkThresholds, projectedStatus } from './control';
 import { budgetMetrics, utilisationBp } from './metrics';
 
 // The shipped defaults (database migration 0010): warning at 80.00%, approval at 100.00%.
@@ -266,5 +266,20 @@ describe('projectedStatus', () => {
 
   it('refuses a total beyond the safe money range', () => {
     expect(() => project(1, Number.MAX_SAFE_INTEGER, 1)).toThrow(MoneyError);
+  });
+});
+
+describe('byUrgency', () => {
+  it('puts approval first, then warning, then normal, keeping the order within each', () => {
+    const rows = [
+      { id: 'a', s: 'NORMAL' },
+      { id: 'b', s: 'WARNING' },
+      { id: 'c', s: 'APPROVAL_REQUIRED' },
+      { id: 'd', s: 'NORMAL' },
+      { id: 'e', s: 'WARNING' },
+      { id: 'f', s: 'APPROVAL_REQUIRED' },
+    ] as const;
+    expect(byUrgency(rows, (r) => r.s).map((r) => r.id)).toEqual(['c', 'f', 'b', 'e', 'a', 'd']);
+    expect(rows.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']); // not mutated
   });
 });

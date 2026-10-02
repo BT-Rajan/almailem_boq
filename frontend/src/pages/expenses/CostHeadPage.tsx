@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
-import { formatFils, formatUtilisation, type Expense } from '@boq/shared';
+import { formatFils, type Expense } from '@boq/shared';
 import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
 import { useLoad } from '../../api/use-load';
 import { formatDate } from '../../components/format';
-import { StatusDot } from '../../components/StatusDot';
+import { Figures } from '../../components/Figures';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { ExpenseForm, ReverseForm } from './ExpenseForm';
 
@@ -51,30 +51,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         )}
       </div>
 
-      <dl className="figures" aria-label="Figures">
-        <div>
-          <dt>Budget</dt>
-          <dd>{formatFils(m.budget)}</dd>
-        </div>
-        <div>
-          <dt>Actual</dt>
-          <dd>{formatFils(m.actual)}</dd>
-        </div>
-        <div>
-          <dt>Remaining</dt>
-          <dd className={m.remaining < 0 ? 'negative' : undefined}>{formatFils(m.remaining)}</dd>
-        </div>
-        <div>
-          <dt>Used</dt>
-          <dd>{formatUtilisation(m.utilisationBp)}</dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd>
-            <StatusDot status={d.status} />
-          </dd>
-        </div>
-      </dl>
+      <Figures metrics={m} status={d.status} />
 
       <table className="table money">
         <thead>
