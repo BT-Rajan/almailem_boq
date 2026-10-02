@@ -3,7 +3,7 @@
 #
 #   bash installer.sh
 #
-# First run on a fresh server: installs what is missing (git, curl, Node 22, pnpm, pm2, MariaDB),
+# First run on a fresh server: installs what is missing (git, curl, Node.js, pnpm, pm2, MariaDB),
 # creates the database and its accounts, builds the app, migrates, creates the first
 # administrator, starts backend + frontend in pm2 and checks they answer.
 # Later runs: pull the latest code, rebuild, migrate, restart. Every step checks before it changes
@@ -56,7 +56,8 @@ API_APP="${APP_NAME}-api"
 WEB_APP="${APP_NAME}-web"
 HOST="${HOST:-0.0.0.0}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-60}"
-NODE_MAJOR=22
+NODE_MIN=20.19   # the oldest Node.js the app runs on (Vite sets this floor); any newer one is used as is
+NODE_MAJOR=22    # what is installed when there is no Node.js at all
 MIN_MARIADB=10.11
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -86,15 +87,16 @@ done
 ok "git, curl, openssl"
 
 # ───────────────────────── 2. Node.js, pnpm, pm2 ─────────────────────────
-step "2/12 Node.js ${NODE_MAJOR}, pnpm, pm2"
+step "2/12 Node.js, pnpm, pm2"
 if ! have node; then
   warn "Node.js missing — installing ${NODE_MAJOR}.x from NodeSource"
   [ "$APT" = 1 ] || die "Install Node.js ${NODE_MAJOR} yourself (e.g. nvm) and re-run"
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | $SUDO bash - >/dev/null
   apt_install nodejs || die "Node.js install failed"
 fi
-NM="$(node -p 'process.versions.node.split(".")[0]')"
-[ "$NM" -ge "$NODE_MAJOR" ] || die "Node $(node -v) found; this app needs Node ${NODE_MAJOR}+. Upgrade it (nvm or NodeSource) — not done automatically in case other apps use it."
+# The Node.js already on the server is kept if it is new enough: other apps may depend on it.
+node -e 'const [a,b]=process.argv[1].split(".").map(Number),[x,y]=process.versions.node.split(".").map(Number);process.exit(x>a||(x===a&&y>=b)?0:1)' "$NODE_MIN" \
+  || die "Node $(node -v) found; this app needs Node ${NODE_MIN} or newer. Upgrade it (nvm or NodeSource) — not done automatically in case other apps use it."
 PNPM_VERSION="$(node -p 'require(process.argv[1]).packageManager.split("@")[1]' "$APP_DIR/package.json" 2>/dev/null || echo 12.8.1)"
 if ! have pnpm || [ "$(pnpm -v 2>/dev/null)" != "$PNPM_VERSION" ]; then
   info "Setting up pnpm $PNPM_VERSION"
@@ -107,7 +109,7 @@ ok "node $(node -v), pnpm $(pnpm -v), pm2 $PM2_V"
 
 # ───────────────────────── 3. code ─────────────────────────
 step "3/12 Code"
-if [ -d "$APP_DIR/.git" ]; then
+if [ -e "$APP_DIR/.git" ]; then  # a directory, or a file in a git worktree
   cd "$APP_DIR"
   BRANCH="${BRANCH:-$(git branch --show-current)}"
   if [ "${SKIP_PULL:-0}" = "1" ]; then
@@ -187,36 +189,48 @@ DB_ADMIN_PASS="${DB_ADMIN_PASS:-$(state_get DB_ADMIN_PASS)}"
 [ -n "$DB_ADMIN_PASS" ] || DB_ADMIN_PASS="$(gen_pass)"
 
 can_login() { MYSQL_PWD="$2" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$1" --connect-timeout=5 -e "USE \`$DB_NAME\`" >/dev/null 2>&1; }
+can_auth() { MYSQL_PWD="$2" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$1" --connect-timeout=5 -e "SELECT 1" >/dev/null 2>&1; }
 ROOT_ERR=""
-as_root() {
+as_root() { # prints the query's rows (no headers) on success
   local out
   if [ -z "${MYSQL_ROOT_PASSWORD:-}" ] && { [ -n "$SUDO" ] || [ "$(id -u)" = 0 ]; }; then
-    out="$($SUDO "$MYSQL" -e "$1" 2>&1)" && return 0; ROOT_ERR="$out"
+    out="$($SUDO "$MYSQL" -N -B -e "$1" 2>&1)" && { printf '%s' "$out"; return 0; }; ROOT_ERR="$out"
   fi
   if [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then
-    out="$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u root -e "$1" 2>&1)" && return 0; ROOT_ERR="$out"
+    out="$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u root -N -B -e "$1" 2>&1)" && { printf '%s' "$out"; return 0; }; ROOT_ERR="$out"
   fi
   return 1
+}
+# An account that already exists (perhaps used by another install) keeps its password: we only
+# use it if the password we have works, and never change it.
+check_existing_account() { # check_existing_account USER PASSWORD VAR_NAME
+  local n
+  n="$(as_root "SELECT COUNT(*) FROM mysql.user WHERE User = '$(sql_str "$1")'")" \
+    || die "Could not administer MariaDB as root: ${ROOT_ERR:-no root access}. Run with sudo, or set MYSQL_ROOT_PASSWORD."
+  [ "$n" = 0 ] || can_auth "$1" "$2" \
+    || die "Database account '$1' already exists with a different password, and this installer never changes it. Re-run with its password ($3=...), or pick a new account name (${3%_PASS}_USER=...)."
 }
 if can_login "$DB_USER" "$DB_PASS" && can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS"; then
   ok "Database '$DB_NAME' and both accounts already work — reusing them"
 else
-  info "Creating database '$DB_NAME' and accounts '$DB_USER', '$DB_ADMIN_USER'"
+  info "Creating database '$DB_NAME' and any missing accounts ('$DB_USER', '$DB_ADMIN_USER')"
+  check_existing_account "$DB_USER" "$DB_PASS" DB_PASS
+  check_existing_account "$DB_ADMIN_USER" "$DB_ADMIN_PASS" DB_ADMIN_PASS
   P="$(sql_str "$DB_PASS")"; A="$(sql_str "$DB_ADMIN_PASS")"
   SQL="CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
   for h in localhost 127.0.0.1; do
     SQL+="
-      CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$P'; ALTER USER '$DB_USER'@'$h' IDENTIFIED BY '$P';
-      CREATE USER IF NOT EXISTS '$DB_ADMIN_USER'@'$h' IDENTIFIED BY '$A'; ALTER USER '$DB_ADMIN_USER'@'$h' IDENTIFIED BY '$A';
+      CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$P';
+      CREATE USER IF NOT EXISTS '$DB_ADMIN_USER'@'$h' IDENTIFIED BY '$A';
       GRANT SELECT, INSERT, UPDATE, DELETE ON \`$DB_NAME\`.* TO '$DB_USER'@'$h';
       GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_ADMIN_USER'@'$h';
       GRANT ALL PRIVILEGES ON \`${DB_NAME}_restore_check\`.* TO '$DB_ADMIN_USER'@'$h';"
   done
   SQL+=" FLUSH PRIVILEGES;"
-  as_root "$SQL" || die "Could not administer MariaDB as root: ${ROOT_ERR:-no root access}. Run with sudo, or set MYSQL_ROOT_PASSWORD."
+  as_root "$SQL" >/dev/null || die "Could not administer MariaDB as root: ${ROOT_ERR:-no root access}. Run with sudo, or set MYSQL_ROOT_PASSWORD."
   can_login "$DB_USER" "$DB_PASS" && can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS" \
     || die "Accounts created but cannot log in — check DB_HOST/DB_PORT"
-  ok "Created '$DB_NAME'; '$DB_USER' may only read and write data, '$DB_ADMIN_USER' runs migrations"
+  ok "Database '$DB_NAME' ready; '$DB_USER' may only read and write data, '$DB_ADMIN_USER' runs migrations"
 fi
 
 # ───────────────────────── 6. ports and address ─────────────────────────

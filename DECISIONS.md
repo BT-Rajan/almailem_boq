@@ -254,3 +254,8 @@ Supersedes the "32 heads, to be supplied" parts of D10 and D18. Admins create, e
   Passwords are generated once and kept in `.install.env` (mode 600, git-ignored). A re-run never rotates them.
 - **The first administrator** is created only when the database has no users, through the existing `admin:bootstrap`.
 - **The secrets scan ignores database URLs whose password is a shell variable** (`$pass`, `$(urlenc …)`). A literal password still fails it.
+- **Node.js 20.19 or newer**, not only 22. Production servers may already run Node 20 for other apps, and the installer must not replace it. Nothing in the app needs 22:
+  - Vite is the strictest dependency, at `^20.19.0`;
+  - `process.loadEnvFile` exists since Node 20.12;
+  - the backend bundle targets `node20`.
+  `cookie@2` (under `@fastify/cookie`) declares Node 22 in its metadata, but the full test suite passes on Node 20.20. The installer keeps any Node.js at 20.19 or newer, and installs Node 22 only when there is none. `.nvmrc` stays at 22 for development.
