@@ -9,11 +9,16 @@
 # Later runs: pull the latest code, rebuild, migrate, restart. Every step checks before it changes
 # anything, so re-running is safe. Passwords are never hard-coded and never rotated on a re-run.
 #
-# Env overrides (all optional; asked for on an interactive terminal, defaults otherwise):
+# It never asks anything: every setting comes from the environment, else .install.env (what the
+# last run used), else a default; passwords that are not given are generated. INTERACTIVE=1 asks.
+# Settings (all optional):
 #   APP_DIR REPO_URL BRANCH            where the code lives / comes from (default: this checkout)
-#   DB_HOST DB_PORT DB_NAME            MariaDB (default 127.0.0.1:3306, database "boq")
-#   DB_USER DB_PASS                    the app's account: data only (default boq_app, generated)
-#   DB_ADMIN_USER DB_ADMIN_PASS        migrations/backups account (default boq_admin, generated)
+#   DB_HOST DB_PORT DB_NAME            MariaDB (default 127.0.0.1:3306, database "boq"; created once)
+#   DB_USER DB_PASS                    the app's account: data only (default app_user, generated).
+#                                      An account that already exists keeps its password: give it
+#                                      once, e.g. DB_PASS='...' bash installer.sh (then remembered)
+#   DB_ADMIN_USER DB_ADMIN_PASS        migrations/backups account (default <DB_USER>_admin,
+#                                      generated). Set it equal to DB_USER for a single account.
 #   MYSQL_ROOT_PASSWORD                if root@localhost needs a password (Debian/Ubuntu: sudo is enough)
 #   PORT FRONTEND_PORT                 backend (default 3100, bound to 127.0.0.1) / web (default 7180)
 #   HOST                               web server bind address (default 0.0.0.0)
@@ -22,7 +27,7 @@
 #   ADMIN_EMAIL ADMIN_NAME ADMIN_PASSWORD   first administrator (only when there are no users yet)
 #   APP_NAME                           pm2 name prefix (default boq -> boq-api, boq-web)
 #   HEALTH_TIMEOUT                     seconds to wait for the app (default 60)
-#   NONINTERACTIVE=1                   never prompt; use defaults and generated passwords
+#   INTERACTIVE=1                      ask for each setting on the terminal instead
 #   SKIP_PULL=1                        don't git pull (deploy the checkout exactly as it is)
 set -Eeuo pipefail
 
@@ -33,7 +38,7 @@ info() { printf '\033[1;34m  i %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m  ✘ %s\033[0m\n' "$*" >&2; exit 1; }
 trap 'die "Failed at line $LINENO: $BASH_COMMAND"' ERR
 have() { command -v "$1" >/dev/null 2>&1; }
-is_tty() { [ "${NONINTERACTIVE:-0}" != "1" ] && [ -t 0 ]; }
+is_tty() { [ "${INTERACTIVE:-0}" = "1" ] && [ -t 0 ]; }
 ask() { # ask "prompt" default
   local reply
   if is_tty; then read -rp "  $1 [$2]: " reply || true; printf '%s\n' "${reply:-$2}"; else printf '%s\n' "$2"; fi
@@ -208,14 +213,23 @@ pick_ident() { # pick_ident VAR "prompt" default
   printf -v "$1" '%s' "$v"
 }
 pick_ident DB_NAME "Database name" boq
-pick_ident DB_USER "App database account (data only)" boq_app
-pick_ident DB_ADMIN_USER "Admin database account (migrations, backups)" boq_admin
+pick_ident DB_USER "App database account (data only)" app_user
+pick_ident DB_ADMIN_USER "Admin database account (migrations, backups)" "${DB_USER}_admin"
 DB_PASS="${DB_PASS:-$(state_get DB_PASS)}"
-DB_ADMIN_PASS="${DB_ADMIN_PASS:-$(state_get DB_ADMIN_PASS)}"
 [ -n "$DB_PASS" ] || DB_PASS="$(ask_secret "Password for $DB_USER")"
 [ -n "$DB_PASS" ] || DB_PASS="$(gen_pass)"
-[ -n "$DB_ADMIN_PASS" ] || DB_ADMIN_PASS="$(ask_secret "Password for $DB_ADMIN_USER")"
-[ -n "$DB_ADMIN_PASS" ] || DB_ADMIN_PASS="$(gen_pass)"
+SINGLE_ACCOUNT=0
+if [ "$DB_ADMIN_USER" = "$DB_USER" ]; then
+  # One account for everything: simpler, but it can alter tables, so the audit log's
+  # append-only triggers no longer protect against the app itself (HARDENING A3).
+  SINGLE_ACCOUNT=1
+  DB_ADMIN_PASS="$DB_PASS"
+  warn "One database account ('$DB_USER') for the app and for migrations: the audit log is less protected (HARDENING A3)"
+else
+  DB_ADMIN_PASS="${DB_ADMIN_PASS:-$(state_get DB_ADMIN_PASS)}"
+  [ -n "$DB_ADMIN_PASS" ] || DB_ADMIN_PASS="$(ask_secret "Password for $DB_ADMIN_USER")"
+  [ -n "$DB_ADMIN_PASS" ] || DB_ADMIN_PASS="$(gen_pass)"
+fi
 
 can_login() { MYSQL_PWD="$2" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$1" --connect-timeout=5 -e "USE \`$DB_NAME\`" >/dev/null 2>&1; }
 can_auth() { MYSQL_PWD="$2" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$1" --connect-timeout=5 -e "SELECT 1" >/dev/null 2>&1; }
@@ -240,26 +254,38 @@ check_existing_account() { # check_existing_account USER PASSWORD VAR_NAME
     || die "Database account '$1' already exists with a different password, and this installer never changes it. Re-run with its password ($3=...), or pick a new account name (${3%_PASS}_USER=...)."
 }
 if can_login "$DB_USER" "$DB_PASS" && can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS"; then
-  ok "Database '$DB_NAME' and both accounts already work — reusing them"
+  ok "Database '$DB_NAME' found and its account(s) work — using them"
 else
-  info "Creating database '$DB_NAME' and any missing accounts ('$DB_USER', '$DB_ADMIN_USER')"
+  # Created only if it is not there yet; an existing database is used as it is.
+  FOUND="$(as_root "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$(sql_str "$DB_NAME")'")" \
+    || die "Could not administer MariaDB as root: ${ROOT_ERR:-no root access}. Run with sudo, or set MYSQL_ROOT_PASSWORD."
   check_existing_account "$DB_USER" "$DB_PASS" DB_PASS
-  check_existing_account "$DB_ADMIN_USER" "$DB_ADMIN_PASS" DB_ADMIN_PASS
+  [ "$SINGLE_ACCOUNT" = 1 ] || check_existing_account "$DB_ADMIN_USER" "$DB_ADMIN_PASS" DB_ADMIN_PASS
+  if [ "$FOUND" = 1 ]; then info "Database '$DB_NAME' found — setting up access to it"
+  else info "Database '$DB_NAME' not found — creating it"; fi
   P="$(sql_str "$DB_PASS")"; A="$(sql_str "$DB_ADMIN_PASS")"
   SQL="CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
   for h in localhost 127.0.0.1; do
     SQL+="
-      CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$P';
+      CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$P';"
+    if [ "$SINGLE_ACCOUNT" = 1 ]; then
+      SQL+="
+      GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'$h';
+      GRANT ALL PRIVILEGES ON \`${DB_NAME}_restore_check\`.* TO '$DB_USER'@'$h';"
+    else
+      SQL+="
       CREATE USER IF NOT EXISTS '$DB_ADMIN_USER'@'$h' IDENTIFIED BY '$A';
       GRANT SELECT, INSERT, UPDATE, DELETE ON \`$DB_NAME\`.* TO '$DB_USER'@'$h';
       GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_ADMIN_USER'@'$h';
       GRANT ALL PRIVILEGES ON \`${DB_NAME}_restore_check\`.* TO '$DB_ADMIN_USER'@'$h';"
+    fi
   done
   SQL+=" FLUSH PRIVILEGES;"
   as_root "$SQL" >/dev/null || die "Could not administer MariaDB as root: ${ROOT_ERR:-no root access}. Run with sudo, or set MYSQL_ROOT_PASSWORD."
   can_login "$DB_USER" "$DB_PASS" && can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS" \
     || die "Accounts created but cannot log in — check DB_HOST/DB_PORT"
-  ok "Database '$DB_NAME' ready; '$DB_USER' may only read and write data, '$DB_ADMIN_USER' runs migrations"
+  if [ "$SINGLE_ACCOUNT" = 1 ]; then ok "Database '$DB_NAME' ready; '$DB_USER' runs the app and migrations"
+  else ok "Database '$DB_NAME' ready; '$DB_USER' may only read and write data, '$DB_ADMIN_USER' runs migrations"; fi
 fi
 
 # ───────────────────────── 6. ports and address ─────────────────────────
@@ -273,16 +299,24 @@ pick_port() { # pick_port VAR "prompt" default owner-pm2-app
   local p; p="${!1:-$(state_get "$1")}"; p="${p:-$(ask "$2" "$3")}"
   is_port "$p" || die "$1 must be a port number (got '$p')"
   if ! port_free "$p" && ! pm2_has "$4"; then
-    is_tty || die "Port $p is in use — set $1 to a free port"
-    while ! port_free "$p"; do warn "Port $p is in use"; p="$(ask "$2" "$((p + 1))")"; is_port "$p" || die "bad port"; done
+    if is_tty; then
+      while ! port_free "$p"; do warn "Port $p is in use"; p="$(ask "$2" "$((p + 1))")"; is_port "$p" || die "bad port"; done
+    else
+      local first="$p"
+      while ! port_free "$p"; do p=$((p + 1)); [ "$p" -le $((first + 50)) ] || die "No free port near $first — set $1"; done
+      warn "Port $first is in use — using $p"
+    fi
   fi
   printf -v "$1" '%s' "$p"
 }
 pick_port PORT "Backend port (local only)" 3100 "$API_APP"
 pick_port FRONTEND_PORT "Web port" 7180 "$WEB_APP"
 [ "$PORT" != "$FRONTEND_PORT" ] || die "PORT and FRONTEND_PORT must differ"
+# The server's own IPv4 addresses: people on the network open the app through one of these.
+SERVER_IPS="$( { hostname -I 2>/dev/null || true; } | tr ' ' '\n' | grep -E '^[0-9]+(\.[0-9]+){3}$' | grep -v '^127\.' || true)"
+FIRST_IP="$(printf '%s\n' "$SERVER_IPS" | head -1)"
 PUBLIC_URL="${PUBLIC_URL:-$(state_get PUBLIC_URL)}"
-PUBLIC_URL="${PUBLIC_URL:-$(ask "Address people will open in the browser" "http://localhost:$FRONTEND_PORT")}"
+PUBLIC_URL="${PUBLIC_URL:-$(ask "Address people will open in the browser" "http://${FIRST_IP:-localhost}:$FRONTEND_PORT")}"
 PUBLIC_URL="${PUBLIC_URL%/}"
 [[ "$PUBLIC_URL" =~ ^https?://[^/]+$ ]] || die "PUBLIC_URL must look like http://host:port or https://host (got '$PUBLIC_URL')"
 PUBLIC_HOST="$(node -p 'new URL(process.argv[1]).hostname' "$PUBLIC_URL")"
@@ -295,12 +329,18 @@ ok "Backend 127.0.0.1:$PORT, web $HOST:$FRONTEND_PORT, opened as $PUBLIC_URL"
 
 # ───────────────────────── 7. configuration ─────────────────────────
 step "7/12 Configuration"
+: > "$STATE.new"; chmod 600 "$STATE.new" # private before any password goes in
 {
   echo "# Written by installer.sh. Holds passwords: keep private (chmod 600), never commit."
   for k in DB_HOST DB_PORT DB_NAME DB_USER DB_PASS DB_ADMIN_USER DB_ADMIN_PASS PORT FRONTEND_PORT PUBLIC_URL; do
     printf '%s=%s\n' "$k" "${!k}"
   done
-} > "$STATE"
+  # The first administrator's generated login, if the installer made one (kept across runs).
+  for k in FIRST_ADMIN_EMAIL FIRST_ADMIN_PASSWORD; do
+    v="$(state_get "$k")"; [ -z "$v" ] || printf '%s=%s\n' "$k" "$v"
+  done
+} > "$STATE.new"
+mv "$STATE.new" "$STATE"
 chmod 600 "$STATE"
 ENV="$APP_DIR/backend/.env"
 touch "$ENV"; chmod 600 "$ENV"
@@ -310,9 +350,12 @@ set_env() { # set_env KEY VALUE: replace or append, leaving every other line alo
   printf '%s=%s\n' "$1" "$2" >> "$tmp"
   cat "$tmp" > "$ENV"; rm -f "$tmp"
 }
+# Browsers may only sign in from these addresses: the public one, plus this server's own
+# names and IPs on the web port, so it works however someone on the network opens it.
 ORIGINS="$PUBLIC_URL"
-for o in "http://localhost:$FRONTEND_PORT" "http://127.0.0.1:$FRONTEND_PORT"; do
-  [ "$o" = "$PUBLIC_URL" ] || ORIGINS+=",$o"
+for h in localhost 127.0.0.1 $SERVER_IPS; do
+  o="http://$h:$FRONTEND_PORT"
+  [[ ",$ORIGINS," == *",$o,"* ]] || ORIGINS+=",$o"
 done
 set_env NODE_ENV production
 set_env HOST 127.0.0.1
@@ -351,7 +394,7 @@ USERS="$(MYSQL_PWD="$DB_PASS" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER"
 if [ "$USERS" != 0 ]; then
   ok "$USERS user(s) already exist — sign in with an existing account"
 else
-  ADMIN_EMAIL="${ADMIN_EMAIL:-$(ask "Administrator email" "admin@example.com")}"
+  ADMIN_EMAIL="${ADMIN_EMAIL:-$(ask "Administrator email" "admin@almailem.local")}"
   ADMIN_NAME="${ADMIN_NAME:-$(ask "Administrator name" "Administrator")}"
   GENERATED_ADMIN=0
   if [ -z "${ADMIN_PASSWORD:-}" ]; then
@@ -361,7 +404,11 @@ else
   [ "${#ADMIN_PASSWORD}" -ge 12 ] || die "The administrator password must be at least 12 characters"
   printf '%s' "$ADMIN_PASSWORD" | DATABASE_URL="$ADMIN_URL" pnpm --silent admin:bootstrap "$ADMIN_EMAIL" "$ADMIN_NAME" | sed 's/^/  /'
   ok "Administrator $ADMIN_EMAIL created"
-  [ "$GENERATED_ADMIN" = 1 ] && warn "Generated password for $ADMIN_EMAIL: $ADMIN_PASSWORD  (shown once — sign in and keep it safe)"
+  if [ "$GENERATED_ADMIN" = 1 ]; then
+    # Kept with the other passwords (chmod 600) so it is not lost if the screen scrolls away.
+    printf 'FIRST_ADMIN_EMAIL=%s\nFIRST_ADMIN_PASSWORD=%s\n' "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >> "$STATE"
+    NEW_ADMIN="$ADMIN_EMAIL / $ADMIN_PASSWORD"
+  fi
 fi
 cd "$APP_DIR"
 
@@ -423,6 +470,7 @@ ok "pm2 processes online"
 
 printf '\n\033[1;32mAlmailem BoQ Manager is running\033[0m  (%s @ %s)\n' "$BRANCH" "$(git rev-parse --short HEAD)"
 echo "  Open:          $PUBLIC_URL"
+[ -z "${NEW_ADMIN:-}" ] || printf '  \033[1;33mSign in:       %s\033[0m  (also saved in .install.env)\n' "$NEW_ADMIN"
 echo "  Manage:        pm2 status | pm2 logs $API_APP | pm2 restart $ECOSYSTEM"
 echo "  Update later:  bash installer.sh     (pulls, rebuilds, migrates, restarts)"
 echo "  Start on boot: pm2 startup           (once; run the command it prints)"

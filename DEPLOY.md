@@ -23,17 +23,22 @@ It installs what is missing (git, curl, Node.js, pnpm, pm2, MariaDB). An existin
   - `boq-web`, which serves `frontend/dist` on port 7180 and proxies `/api` to the API;
 - checks both are healthy.
 
-Settings and generated passwords are kept in `.install.env` (mode 600, ignored by git). Run it again to update: it pulls, rebuilds, migrates and restarts, reusing every setting and password.
+It never asks anything. Each setting comes from the environment, else `.install.env` (what the last run used), else the default below; passwords that are not given are generated. `INTERACTIVE=1` makes it ask instead.
+
+Settings and passwords are kept in `.install.env` (mode 600, ignored by git); never put them in the script, which is public. Run it again to update: it pulls, rebuilds, migrates and restarts, reusing every setting and password.
+
+The database is created only if it does not exist; otherwise it is used as it is. A database account that already exists keeps its password: give that password on the first run, for example `DB_PASS='…' bash installer.sh`, and it is remembered after that.
 
 | Override | Default |
 |---|---|
-| `DB_NAME`, `DB_USER`, `DB_ADMIN_USER` | `boq`, `boq_app`, `boq_admin` |
+| `DB_NAME`, `DB_USER` | `boq`, `app_user` |
+| `DB_ADMIN_USER` | `<DB_USER>_admin`. Set it equal to `DB_USER` for a single account, which makes the audit log less protected (HARDENING A3). |
 | `DB_HOST`, `DB_PORT` | `127.0.0.1`, `3306` |
-| `DB_PASS`, `DB_ADMIN_PASS` | Prompted, or generated |
+| `DB_PASS`, `DB_ADMIN_PASS` | Generated (an existing account needs its password given once) |
 | `MYSQL_ROOT_PASSWORD` | Unset (root through the unix socket) |
 | `PORT`, `FRONTEND_PORT` | `3100`, `7180` |
-| `PUBLIC_URL` | `http://localhost:7180` |
-| `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | Prompted. A password is generated and shown once if none is given. |
+| `PUBLIC_URL` | `http://<server IP>:7180`. Sign-in also works from the server's other addresses on that port. |
+| `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | `admin@almailem.local`, `Administrator`, generated. The generated login is printed at the end and saved in `.install.env`. |
 | `BRANCH`, `REPO_URL`, `SKIP_PULL=1` | The current branch. `SKIP_PULL=1` deploys the checkout as it is. |
 
 For use beyond a single machine, put https in front: set `PUBLIC_URL=https://…` (this turns on `Secure` cookies) and point the TLS proxy at port 7180. Alternatively, use the nginx setup of sections 6–7 instead of `boq-web`.
