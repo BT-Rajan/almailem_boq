@@ -27,7 +27,7 @@ It never asks anything. Each setting comes from the environment, else `.install.
 
 Settings and passwords are kept in `.install.env` (mode 600, ignored by git); never put them in the script, which is public. Run it again to update: it pulls, rebuilds, migrates and restarts, reusing every setting and password.
 
-The database is created only if it does not exist; otherwise it is used as it is. A database account that already exists keeps its password: give that password on the first run, for example `DB_PASS='…' bash installer.sh`, and it is remembered after that.
+The database is created only if it does not exist; otherwise it is used as it is. Without root access to MariaDB (not root, no sudo, no `MYSQL_ROOT_PASSWORD`), the installer works through the app account itself: that account must already exist, its password must be given, and it must be allowed to create the database (or a database administrator creates it and grants it ALL on it). It then also runs the migrations, since no separate admin account can be made. A database account that already exists keeps its password: give that password on the first run, for example `DB_PASS='…' bash installer.sh`, and it is remembered after that.
 
 | Override | Default |
 |---|---|
