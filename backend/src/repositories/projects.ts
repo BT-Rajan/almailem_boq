@@ -92,6 +92,15 @@ export function projectsRepository(db: Db) {
       ]);
       return row ? map(row) : null;
     },
+    /** True when the project exists and is not deleted. */
+    async isLive(id: string): Promise<boolean> {
+      const row = await selectOne(
+        db,
+        'SELECT 1 AS found FROM projects WHERE id = ? AND deleted_at IS NULL',
+        [id],
+      );
+      return row !== null;
+    },
     async findByCode(code: string, opts?: FindOptions): Promise<ProjectRecord | null> {
       const row = await selectOne(db, `SELECT * FROM projects WHERE code = ?${liveClause(opts)}`, [
         code,

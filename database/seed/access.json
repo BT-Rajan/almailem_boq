@@ -8,6 +8,10 @@
     { "code": "admin.costheads.manage", "description": "Manage the cost head master list" },
     { "code": "admin.approvalrules.manage", "description": "Edit approval thresholds and rules" },
     { "code": "admin.audit.view", "description": "View the audit trail" },
+    {
+      "code": "admin.projects.access",
+      "description": "Counts as a member of every project (Admin)"
+    },
     { "code": "project.create", "description": "Create projects" },
     { "code": "project.edit", "description": "Edit projects" },
     { "code": "project.view", "description": "View projects the user is a member of" },

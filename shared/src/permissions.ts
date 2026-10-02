@@ -8,6 +8,7 @@ export const PERMISSION_CODES = [
   'admin.costheads.manage',
   'admin.approvalrules.manage',
   'admin.audit.view',
+  'admin.projects.access',
   'project.create',
   'project.edit',
   'project.view',

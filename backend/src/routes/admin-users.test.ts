@@ -173,6 +173,15 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
     });
   });
 
+  it('an Admin reaches every project; losing the role removes that on the next request', async () => {
+    const u = await makeUser(fx, { roleName: 'Admin' });
+    const s = await signIn(fx, u.email);
+    expect((await reach(s, projectA)).statusCode).toBe(200);
+    expect((await reach(s, projectB)).statusCode).toBe(200);
+    await call(admin, 'DELETE', `/api/admin/users/${u.id}/roles/${roleIds['Admin']}`);
+    expect((await reach(s, projectA)).statusCode).toBe(403);
+  });
+
   describe('create user', () => {
     it('creates with roles, never returns the password or its hash, and audits without it', async () => {
       const res = await createUser({

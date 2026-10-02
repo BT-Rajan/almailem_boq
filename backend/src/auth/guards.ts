@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fa
 import { CSRF_HEADER, type PermissionCode } from '@boq/shared';
 import type { DbPool } from '../db/pool';
 import { AppError } from '../errors/app-error';
-import { projectMembersRepository } from '../repositories';
+import { projectMembersRepository, projectsRepository } from '../repositories';
 import type { AuthService } from './auth-service';
 import type { AuthConfig } from './config';
 import { safeEqual } from './tokens';
@@ -11,6 +11,9 @@ import type { AuthContext } from './types';
 /** Markers let the route registry check, at startup, that every route is guarded. */
 export const AUTHENTICATE_MARK = Symbol('boq.authenticate');
 export const AUTHORIZE_MARK = Symbol('boq.authorize');
+
+/** Holders count as a member of every project. */
+const ALL_PROJECTS_PERMISSION: PermissionCode = 'admin.projects.access';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -69,8 +72,9 @@ export function createGuards(deps: { pool: DbPool; service: AuthService; config:
     );
 
   /**
-   * May this user touch this project? Members only. A project that does not exist, is deleted, or
-   * has a malformed id gets the same 403 as a non-member, so responses never reveal which projects exist.
+   * May this user touch this project? Members, and holders of admin.projects.access, who count as a
+   * member of every project (D17). A project that does not exist, is deleted, or has a malformed id
+   * gets the same 403 as a non-member, so responses never reveal which projects exist.
    */
   const authorizeProjectAccess = (param = 'projectId'): onRequestAsyncHookHandler =>
     mark(
@@ -80,7 +84,9 @@ export function createGuards(deps: { pool: DbPool; service: AuthService; config:
         const allowed =
           typeof id === 'string' &&
           UUID.test(id) &&
-          (await projectMembersRepository(pool).hasAccess(id, ctx.user.id));
+          (ctx.permissions.has(ALL_PROJECTS_PERMISSION)
+            ? await projectsRepository(pool).isLive(id)
+            : await projectMembersRepository(pool).hasAccess(id, ctx.user.id));
         if (!allowed) throw AppError.forbidden();
       },
       AUTHORIZE_MARK,

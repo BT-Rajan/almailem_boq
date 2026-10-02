@@ -338,6 +338,30 @@ describe.skipIf(!hasTestDb)('authentication and authorization (real MariaDB)', (
       await projectsRepository(fx.db.pool).softDelete(p.id);
       expect((await get(s, p.id)).statusCode).toBe(403);
     });
+    it('an Admin counts as a member of every live project without a membership row', async () => {
+      const a = await makeUser(fx, { roleName: 'Admin' });
+      const s = await signIn(fx, a.email);
+      expect(await projectMembersRepository(fx.db.pool).isMember(projectId, a.id)).toBe(false);
+      expect((await get(s, projectId)).statusCode).toBe(200);
+      // ...but still gets the uniform 403 for missing, malformed and deleted projects
+      const gone = await projectsRepository(fx.db.pool).create({
+        code: 'PA-ADEL',
+        name: 'Gone',
+        ownerUserId: owner.id,
+        status: 'active',
+      });
+      expect((await get(s, gone.id)).statusCode).toBe(200);
+      await projectsRepository(fx.db.pool).softDelete(gone.id);
+      expect((await get(s, gone.id)).statusCode).toBe(403);
+      expect((await get(s, '00000000-0000-1000-8000-000000000000')).statusCode).toBe(403);
+      expect((await get(s, 'not-a-uuid')).statusCode).toBe(403);
+    });
+    it('Project Manager and Accountant do not get every project', async () => {
+      for (const roleName of ['Project Manager', 'Accountant']) {
+        const s = await signIn(fx, (await makeUser(fx, { roleName })).email);
+        expect((await get(s, projectId)).statusCode, roleName).toBe(403);
+      }
+    });
     it('still requires the permission: membership alone is not enough', async () => {
       const u = await makeUser(fx); // no roles
       await projectMembersRepository(fx.db.pool).add(projectId, u.id);
