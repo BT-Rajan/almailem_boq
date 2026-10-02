@@ -1,8 +1,8 @@
 import type { RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { SearchResults } from '@boq/shared';
+import { fils, type SearchResults } from '@boq/shared';
 import { hasTestDb } from '../db/testing';
-import { costHeadsRepository, type CostHeadRecord } from '../repositories';
+import { costHeadsRepository, estimatesRepository, type CostHeadRecord } from '../repositories';
 import {
   asUser,
   createAuthFixture,
@@ -56,6 +56,8 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
     });
   async function project(s: Session, code: string, name: string, status: string) {
     const id = (await call(s, 'POST', '/api/projects', { code, name })).json().data.id as string;
+    // A budget, so the search fixtures' expenses are posted rather than held for approval.
+    await estimatesRepository(fx.db.pool).upsert(id, head.id, fils(10_000_000));
     if (status === 'active')
       await call(s, 'POST', `/api/projects/${id}/status`, { status: 'active' });
     return id;

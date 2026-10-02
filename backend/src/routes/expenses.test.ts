@@ -7,10 +7,12 @@ import { JPG, PDF, PNG } from '../attachments/testing';
 import { hasTestDb } from '../db/testing';
 import { auditLogRepository, costHeadsRepository, type CostHeadRecord } from '../repositories';
 import {
+  approveHeld,
   asUser,
   createAuthFixture,
   makeUser,
   signIn,
+  TEST_APPROVAL_REASON,
   type Fixture,
   type Session,
 } from '../auth/testing';
@@ -29,6 +31,7 @@ type Expense = {
 describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)', () => {
   let fx: Fixture;
   let dir: string;
+  let admin: Session;
   let pm: Session;
   let accountant: Session;
   let accountantId: string;
@@ -42,6 +45,7 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), 'boq-exp-'));
     fx = await createAuthFixture({ ATTACHMENTS_DIR: dir, ATTACHMENT_MAX_MB: '1' });
+    admin = await signIn(fx, (await makeUser(fx, { roleName: 'Admin' })).email);
     pm = await signIn(fx, (await makeUser(fx, { roleName: 'Project Manager' })).email);
     const acc = await makeUser(fx, { roleName: 'Accountant' });
     accountantId = acc.id;
@@ -91,10 +95,15 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
   });
   const add = (projectId: string, over: Record<string, unknown> = {}, s: Session = accountant) =>
     call(s, 'POST', `/api/projects/${projectId}/expenses`, expenseBody(over));
+  /** An expense that lands in Actual: past the approval level it is approved by the admin. */
   const addOk = async (projectId: string, over: Record<string, unknown> = {}) => {
-    const res = await add(projectId, over);
+    const res = await add(projectId, { approvalReason: TEST_APPROVAL_REASON, ...over });
     if (res.statusCode !== 201) throw new Error(res.body);
-    return res.json().data as Expense;
+    const created = res.json().data;
+    await approveHeld(fx, admin, created);
+    return (await call(pm, 'GET', `/api/projects/${projectId}/expenses?pageSize=100`))
+      .json()
+      .data.items.find((x: Expense) => x.id === created.id) as Expense;
   };
   const headMetrics = async (projectId: string, head = h1): Promise<Metrics> => {
     const boq = (await call(pm, 'GET', `/api/projects/${projectId}/boq`)).json().data;
@@ -284,6 +293,9 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
 
     it('moving to another head moves the spend', async () => {
       const p = await newProject();
+      await call(pm, 'PUT', `/api/projects/${p}/estimates`, {
+        estimates: [{ costHeadId: h2.id, amountFils: 1_000 }],
+      });
       const e = await addOk(p, { amountFils: 70 });
       await call(accountant, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, { costHeadId: h2.id });
       expect((await headMetrics(p)).actual).toBe(0);

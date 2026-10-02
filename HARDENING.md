@@ -2,7 +2,7 @@
 
 Chunk 18 review: security, financial correctness, concurrency, performance and operations. Each finding has its fix or the risk accepted, and where it is tested.
 
-- **Scope note:** Chunks 10 (approvals), 11 (notifications), 14 (reports and exports), 15 (Excel import) and 16 (audit viewer) were not built (skipped at the owner's request). Checks that depend on them are marked **N/A** and must be done when those chunks land.
+- **Scope note:** Chunk 10 (approvals) has since been built (D29); its checks are filled in. Chunks 11 (notifications), 14 (reports and exports), 15 (Excel import) and 16 (audit viewer) were not built (skipped at the owner's request). Checks that depend on them are marked **N/A** and must be done when those chunks land.
 - **Test status:** backend 507, frontend 37, shared 49, contract and secrets 10, iPad 23 (+1 skipped by design). Lint, typecheck and build are clean.
 
 ## Security
@@ -39,7 +39,7 @@ Chunk 18 review: security, financial correctness, concurrency, performance and o
 |---|---|---|---|
 | C1 | Simultaneous adds, reversals, edits and a budget change on the same heads. | A concurrent burst (20 adds, 8 reversals, 6 edits, a budget change) ends exactly at the model's figures. Every money change locks the project row, then the expense row, always in that order. | `routes/financial-properties.test.ts` |
 | C2 | Double reversal, duplicate invoices, concurrent budget edits, last administrator. | Exactly one succeeds in each case (earlier chunks). Each test was checked to fail without its lock. | `expenses.test.ts`, `estimates.test.ts`, `admin-users.test.ts` |
-| C3 | Simultaneous approvals and double approval. | **N/A**: Chunk 10 is not built. Approvals must reuse the project-then-expense lock order. | |
+| C3 | Simultaneous approvals and double approval. | Each decision locks project, then expense, then approval request, and re-reads after locking. The lookup that finds which rows to lock runs before the transaction: under REPEATABLE READ an earlier plain read would freeze the snapshot. The first version did that, and two administrators both succeeded; the test caught it. A second decision on a decided request is 409. Self-approval is refused in the service and by a database CHECK. | `approvals.test.ts` (two admins at once: exactly one 200; double approve 409; self 403), `financial-properties.test.ts` |
 
 ## Performance
 

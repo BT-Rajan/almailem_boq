@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { BudgetMetrics, BoqCostHead } from './budget';
+import type { ApprovalStatus } from './approvals';
 import type { BudgetStatus } from './control';
 import type { Fils } from './money';
 import { listQuerySchema, type Page } from './list-query';
@@ -23,8 +24,18 @@ const fields = {
   description: z.string().trim().max(2000).nullable(),
 };
 
+/**
+ * Why spend beyond the approval level is needed. Required, and only read, when the expense would
+ * take its head to the approval level (the server decides that, with domain/control).
+ */
+export const approvalReasonSchema = z.string().trim().min(1).max(500);
+
 export const createExpenseRequestSchema = z
-  .object({ ...fields, description: fields.description.optional() })
+  .object({
+    ...fields,
+    description: fields.description.optional(),
+    approvalReason: approvalReasonSchema.optional(),
+  })
   .strict();
 export type CreateExpenseRequest = z.input<typeof createExpenseRequestSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseRequestSchema>;
@@ -64,6 +75,25 @@ export const costHeadParamsSchema = z.object({
   costHeadId: z.string().uuid(),
 });
 
+/**
+ * Only POSTED expenses count toward Actual. PENDING_APPROVAL is held until an administrator
+ * decides; REJECTED and CANCELLED never count. Reversal entries are always POSTED.
+ */
+export const EXPENSE_STATUSES = ['POSTED', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'] as const;
+export type ExpenseStatus = (typeof EXPENSE_STATUSES)[number];
+export const expenseStatusSchema = z.enum(EXPENSE_STATUSES);
+
+/** The approval request behind a held expense, as the expense list shows it. */
+export type ExpenseApproval = {
+  id: string;
+  status: ApprovalStatus;
+  reason: string;
+  requestedBy: { id: string; name: string };
+  decidedBy: { id: string; name: string } | null;
+  decidedAt: string | null;
+  decisionComment: string | null;
+};
+
 export type Expense = {
   id: string;
   costHead: { id: string; code: string; name: string };
@@ -80,6 +110,9 @@ export type Expense = {
   reversalOf: string | null;
   /** Set on an expense that has been reversed. */
   reversedAt: string | null;
+  status: ExpenseStatus;
+  /** Set when the expense needed approval. */
+  approval: ExpenseApproval | null;
 };
 export type ExpensePage = Page<Expense>;
 

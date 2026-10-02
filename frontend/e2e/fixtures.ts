@@ -57,7 +57,50 @@ const expense = (i: number) => ({
   createdAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
+  // One entry waits for approval, so its Cancel request button is part of the layout checks.
+  status: i === 1 ? 'PENDING_APPROVAL' : 'POSTED',
+  approval:
+    i === 1
+      ? {
+          id: 'a1',
+          status: 'PENDING',
+          reason: 'Extra rebar after the structural redesign',
+          requestedBy: { id: 'u1', name: 'Site Admin' },
+          decidedBy: null,
+          decidedAt: null,
+          decisionComment: null,
+        }
+      : null,
 });
+const approval = (i: number) => {
+  const e = expense(i);
+  return {
+    id: `55555555-5555-4555-8555-5555555555${String(i).padStart(2, '0')}`,
+    status: 'PENDING',
+    project: { id: P, code: project.code, name: project.name },
+    costHead: e.costHead,
+    expense: {
+      id: e.id,
+      vendor: e.vendor,
+      invoiceNo: e.invoiceNo,
+      expenseDate: e.expenseDate,
+      amountFils: e.amountFils,
+      hasAttachment: false,
+    },
+    reason: 'Extra rebar after the structural redesign of the podium slab',
+    requestedBy: { id: 'u2', name: 'Placeholder Project Manager' },
+    requestedAt: '2026-03-15T08:00:00.000Z',
+    requestedBp: 10_450,
+    decidedBy: null,
+    decidedAt: null,
+    decidedBp: null,
+    decisionComment: null,
+    now: {
+      current: { metrics: heads[1]?.metrics, status: 'WARNING' },
+      projected: { metrics: m(125_000_500, 130_000_000, 10399), status: 'APPROVAL_REQUIRED' },
+    },
+  };
+};
 const page = <T>(items: T[]) => ({ items, total: items.length, page: 1, pageSize: 50 });
 
 const ROUTES: [RegExp, unknown][] = [
@@ -72,7 +115,7 @@ const ROUTES: [RegExp, unknown][] = [
   [
     /\/api\/dashboard$/,
     {
-      summary: { projects: 6, metrics: boq.total, status: 'NORMAL' },
+      summary: { projects: 6, pendingApprovals: 4, metrics: boq.total, status: 'NORMAL' },
       projects: Array.from({ length: 6 }, (_, i) => ({
         id: P,
         code: `ALM-2026-00${i}`,
@@ -116,6 +159,7 @@ const ROUTES: [RegExp, unknown][] = [
       })),
     ),
   ],
+  [/\/api\/approvals(\?|$)/, page(Array.from({ length: 6 }, (_, i) => approval(i)))],
   [/\/api\/users\/lookup/, []],
   [
     /\/api\/admin\/users/,
@@ -140,7 +184,6 @@ const ROUTES: [RegExp, unknown][] = [
         description: 'Working access',
         isSystem: true,
         permissions: [
-          'approval.decide',
           'approval.request',
           'estimate.edit',
           'expense.create',

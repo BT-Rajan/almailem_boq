@@ -9,7 +9,7 @@ import { StatusDot } from '../components/StatusDot';
 
 /**
  * Home: where is the money going, and where do I act? Every figure and status is the server's.
- * Pending approvals joins the headline figures once approvals exist (Chunk 10).
+ * Pending approvals counts the requests waiting for an administrator in the user's projects.
  */
 export function DashboardPage() {
   const { data, error } = useLoad(getDashboard);
@@ -23,7 +23,10 @@ export function DashboardPage() {
         label="Portfolio figures"
         metrics={data.summary.metrics}
         status={data.summary.status}
-        lead={[{ label: 'Projects', value: String(data.summary.projects) }]}
+        lead={[
+          { label: 'Projects', value: String(data.summary.projects) },
+          { label: 'Pending approvals', value: String(data.summary.pendingApprovals) },
+        ]}
       />
       <div className="table-scroll">
         <table className="table money">

@@ -5,11 +5,13 @@ import { H, P, mockApi } from './fixtures';
  * The Chunk 17 checklist, at 1024x768 and 768x1024 with touch:
  * no sideways page scroll, 44 px touch targets, sticky first column on wide tables,
  * Add Expense as a bottom sheet, primary actions within thumb reach, camera capture for bills.
+ * Chunk 10 adds the Approvals screen, whose decisions open as bottom sheets too.
  */
 
 const PAGES: [string, string][] = [
   ['dashboard', '#/dashboard'],
   ['projects', '#/projects'],
+  ['approvals', '#/approvals'],
   ['project-boq', `#/projects/${P}`],
   ['cost-head', `#/projects/${P}/heads/${H}`],
   ['users', '#/admin/users'],
@@ -165,4 +167,33 @@ test('cost-head page: Add expense within thumb reach; the preview shows in the s
   await page.locator('.primary-action').click();
   await page.getByLabel('Amount (KWD)').fill('5000');
   await expect(page.getByRole('status', { name: 'After this expense' })).toBeVisible();
+});
+
+test('Approvals: in landscape every money column and Action fit without scrolling', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'ipad-landscape', 'portrait may scroll the table sideways');
+  await open(page, '#/approvals');
+  const box = page.locator('.table-scroll').first();
+  expect(await box.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  await expect(page.locator('.table-scroll thead th').last()).toHaveText('Action');
+});
+
+test('an approval decision opens as a bottom sheet with its main button under the thumb', async ({
+  page,
+}) => {
+  await open(page, '#/approvals');
+  const vp = page.viewportSize() as { width: number; height: number };
+  await page.getByRole('button', { name: 'Decide' }).first().click();
+  const sheet = page.locator('.slideover.sheet');
+  await expect(sheet).toBeVisible();
+  expect(await onTop(page, '.slideover.sheet'), 'something covers the sheet').toBe(true);
+  const s = await sheet.boundingBox();
+  expect(Math.round((s?.y ?? 0) + (s?.height ?? 0))).toBe(vp.height);
+  expect(Math.round(s?.width ?? 0)).toBe(vp.width);
+  const b = await sheet.getByRole('button', { name: 'Approve' }).boundingBox();
+  expect((b?.y ?? 0) + (b?.height ?? 0)).toBeLessThanOrEqual(vp.height);
+  expect((b?.y ?? 0) + (b?.height ?? 0) / 2).toBeGreaterThan(vp.height * 0.6);
+  expect(await smallTargets(page)).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('approval-sheet.png') });
 });

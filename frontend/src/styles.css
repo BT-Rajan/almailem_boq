@@ -460,6 +460,10 @@ button.sort {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Wide money tables (Approvals) cut their text columns harder. */
+.table.money td.name.short {
+  max-width: 5.5em;
+}
 /* Overlays sit above everything on the page, including sticky table cells. */
 .slideover-backdrop {
   z-index: 20;

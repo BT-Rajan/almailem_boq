@@ -20,8 +20,11 @@ const ALL = [
   '0010_budget_thresholds',
   '0011_expenses_actual_index',
   '0012_search_indexes',
+  '0013_approvals',
 ];
 const APP_TABLES = [
+  'approval_actions',
+  'approvals',
   'audit_log',
   'budget_thresholds',
   'cost_heads',
@@ -83,9 +86,10 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
   it('rolls back one step at a time, newest first', async () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
-    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0012_search_indexes']);
+    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0013_approvals']);
     const t = await tables(db);
-    expect(t).toContain('budget_thresholds'); // only the index went
+    expect(t).not.toContain('approvals'); // only the newest step went
+    expect(t).not.toContain('approval_actions');
     expect(t).toContain('expenses');
   });
 

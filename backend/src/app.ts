@@ -11,6 +11,7 @@ import { loggerOptions } from './logging/logger';
 import { registerAdminCostHeadRoutes } from './routes/admin-cost-heads';
 import { registerAdminThresholdRoutes } from './routes/admin-thresholds';
 import { registerAdminUserRoutes } from './routes/admin-users';
+import { registerApprovalRoutes } from './routes/approvals';
 import { registerDashboardRoutes } from './routes/dashboard';
 import { registerEstimateRoutes } from './routes/estimates';
 import { registerExpenseRoutes } from './routes/expenses';
@@ -54,6 +55,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     registerSearchRoutes(app, { pool: deps.pool });
     registerEstimateRoutes(app, { pool: deps.pool });
     registerAdminThresholdRoutes(app, { pool: deps.pool });
+    registerApprovalRoutes(app, { pool: deps.pool });
     registerExpenseRoutes(app, {
       pool: deps.pool,
       storage: createAttachmentStorage(env.ATTACHMENTS_DIR),

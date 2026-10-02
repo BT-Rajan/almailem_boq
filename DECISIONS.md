@@ -254,3 +254,40 @@ Supersedes the "32 heads, to be supplied" parts of D10 and D18. Admins create, e
   Passwords are generated once and kept in `.install.env` (mode 600, git-ignored). A re-run never rotates them.
 - **The first administrator** is created only when the database has no users, through the existing `admin:bootstrap`.
 - **The secrets scan ignores database URLs whose password is a shell variable** (`$pass`, `$(urlenc …)`). A literal password still fails it.
+- **Node.js 20.19 or newer**, not only 22. Production servers may already run Node 20 for other apps, and the installer must not replace it. Nothing in the app needs 22:
+  - Vite is the strictest dependency, at `^20.19.0`;
+  - `process.loadEnvFile` exists since Node 20.12;
+  - the backend bundle targets `node20`.
+  `cookie@2` (under `@fastify/cookie`) declares Node 22 in its metadata, but the full test suite passes on Node 20.20. The installer keeps any Node.js at 20.19 or newer, and installs Node 22 only when there is none. `.nvmrc` stays at 22 for development.
+
+## D29. Approval workflow (Chunk 10)
+Supersedes the "Not yet: nothing is blocked" note in D23, and settles the open point in D6a.
+- **Only administrators decide.** `approval.decide` belongs to the Admin role alone, as the chunk asks (a non-admin gets 403). This overrides D6a's proposal that every working role could decide.
+  - The seed now treats `approval.decide` like the `admin.*` permissions.
+  - Migration 0013 removes it from any role that cannot also manage users. It is the one migration that edits grants, because the additive seed would never take it back.
+  - Every working role keeps `approval.request`.
+- **The requester never decides.** This holds even for an administrator; a CHECK constraint backs it up. With only one administrator, their own over-budget spend waits until a second administrator exists, or they cancel it.
+- **Expenses gain a status:** `POSTED`, `PENDING_APPROVAL`, `REJECTED` or `CANCELLED`.
+  - Only POSTED counts toward Actual. The rule is written once, as `countsTowardActual` in `repositories/shared.ts`, which the BoQ and the dashboard both use.
+  - Reversal entries are always POSTED.
+  - A held expense keeps its invoice number; a rejected or cancelled one frees it to be entered again.
+- **When approval is needed:** when Add Expense's projection from `domain/control` (the same one the preview shows) is APPROVAL_REQUIRED.
+  - The expense is saved as held, with an approval request carrying the mandatory reason (400 without one).
+  - WARNING needs no approval.
+  - Nothing in the approval code compares thresholds; they stay data (D22), and the tests show approvals following edited levels.
+- **One state machine,** in `domain/approval-status.ts`: PENDING to APPROVED, REJECTED or CANCELLED, all final.
+  - Each step writes four things in one transaction: the request, its expense's status, an `approval_actions` row (append-only, enforced by triggers) and an audit event.
+  - Rejecting needs a comment; approving takes an optional one.
+  - The requester can cancel a waiting request.
+- **Re-evaluation:** at decision time the head is re-measured with the control engine and today's budget, actual and thresholds. The utilisation is recorded both at request (`requested_bp`) and at decision (`decided_bp`). The Approvals page shows each waiting request re-evaluated live.
+- **Edits can't bypass approval.** An edit that adds spend to a head and would bring it to the approval level (a larger amount, or a move to another head) is refused with 409 `APPROVAL_REQUIRED`: reverse the expense and enter it again with a reason. An edit that reduces spend is always allowed. Held, rejected and cancelled expenses cannot be edited or reversed.
+- **Approving needs an open project;** rejecting and cancelling do not, because they add no spend.
+- **Locks:**
+  - Order: project, then expense, then approval request.
+  - The rows to lock are looked up before the transaction starts (see HARDENING C3).
+- **UI:**
+  - **Approvals page** (Admin): waiting requests oldest first, with Budget, Actual, Remaining after, Used after, status dot, reason and Decide. The decision is a bottom sheet with the head's after-figures. Text columns are cut short and the status is a dot alone, so every money column and Action fit a landscape iPad (checked).
+  - **Add Expense** asks for the reason when the preview reaches the approval level.
+  - **Cost-head page** marks held, rejected and cancelled entries, and offers Cancel request.
+  - **Dashboard** counts pending approvals in the user's projects.
+- **Not built:** notifications (Chunk 11), multi-level chains, and hiding Cancel request from members other than the requester (the server refuses them with a clear message).

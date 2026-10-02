@@ -3,6 +3,7 @@ import {
   ATTACHMENT_TYPES,
   formatFils,
   formatUtilisation,
+  type BudgetProjection,
   type Expense,
   type Fils,
 } from '@boq/shared';
@@ -17,7 +18,9 @@ import { StatusDot } from '../../components/StatusDot';
 
 /**
  * The short Add Expense form, also used to correct one. The bill (PDF, JPG or PNG) is optional.
- * Validation is the server's; this only converts KWD to fils at the edge.
+ * Validation is the server's; this only converts KWD to fils at the edge. When the server's
+ * projection says the expense reaches the approval level, it asks for the reason the approval
+ * request must carry (the server decides again when saving).
  */
 export function ExpenseForm(props: {
   projectId: string;
@@ -35,6 +38,7 @@ export function ExpenseForm(props: {
     expenseDate: e?.expenseDate ?? todayIso(),
     amount: e ? formatFils(e.amountFils) : '',
     description: e?.description ?? '',
+    approvalReason: '',
   });
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +50,8 @@ export function ExpenseForm(props: {
   const heads = (boq.data?.rows ?? []).filter(
     (r) => r.costHead.active || r.costHead.id === v.costHeadId,
   );
+  const projection = useProjection(projectId, e ? '' : v.costHeadId, amountFils);
+  const needsApproval = projection?.projected.status === 'APPROVAL_REQUIRED';
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
@@ -62,7 +68,10 @@ export function ExpenseForm(props: {
     try {
       const saved = e
         ? await updateExpense(projectId, e.id, body)
-        : await createExpense(projectId, body);
+        : await createExpense(projectId, {
+            ...body,
+            ...(needsApproval && { approvalReason: v.approvalReason }),
+          });
       if (file) {
         const err = await attempt(() => uploadAttachment(projectId, saved.id, file));
         if (err) throw new Error(`Expense saved, but the bill was not attached: ${err}`);
@@ -112,7 +121,22 @@ export function ExpenseForm(props: {
           required
         />
       </label>
-      {!e && <Preview projectId={projectId} costHeadId={v.costHeadId} amountFils={amountFils} />}
+      {projection && <Preview projected={projection.projected} />}
+      {needsApproval && (
+        <label>
+          Reason for approval
+          <textarea
+            value={v.approvalReason}
+            onChange={set('approvalReason')}
+            required
+            rows={2}
+            maxLength={500}
+          />
+          <small className="muted">
+            It is held outside Actual until an administrator approves it.
+          </small>
+        </label>
+      )}
       <label>
         Description
         <textarea value={v.description} onChange={set('description')} rows={2} maxLength={2000} />
@@ -141,8 +165,12 @@ export function ExpenseForm(props: {
         {file && <small className="muted">Attaching {file.name}</small>}
       </div>
       <ErrorText message={error ?? boq.error} />
-      <button className="btn-primary" type="submit" disabled={busy || amountFils === null}>
-        {e ? 'Save changes' : 'Add expense'}
+      <button
+        className="btn-primary"
+        type="submit"
+        disabled={busy || amountFils === null || (needsApproval && !v.approvalReason.trim())}
+      >
+        {e ? 'Save changes' : needsApproval ? 'Send for approval' : 'Add expense'}
       </button>
     </form>
   );
@@ -189,11 +217,17 @@ export function ReverseForm(props: {
   );
 }
 
-/** What this expense would do to the head, before it is saved. All figures are the server's. */
-function Preview(props: { projectId: string; costHeadId: string; amountFils: Fils | null }) {
-  const { projectId } = props;
-  const costHeadId = useDebounced(props.costHeadId);
-  const amountFils = useDebounced(props.amountFils);
+/**
+ * The server's projection for a new expense once typing pauses: what it would do to the head.
+ * Null until there is a head and a valid amount (and always for an edit: pass no head).
+ */
+function useProjection(
+  projectId: string,
+  costHeadIdNow: string,
+  amountFilsNow: Fils | null,
+): BudgetProjection | null {
+  const costHeadId = useDebounced(costHeadIdNow);
+  const amountFils = useDebounced(amountFilsNow);
   const ready = costHeadId !== '' && amountFils !== null && amountFils > 0;
   const projection = useLoad(
     useCallback(
@@ -201,8 +235,12 @@ function Preview(props: { projectId: string; costHeadId: string; amountFils: Fil
       [ready, projectId, costHeadId, amountFils],
     ),
   );
-  const p = ready ? projection.data?.projected : undefined;
-  if (!p) return null;
+  return (ready && projection.data) || null;
+}
+
+/** What this expense would do to the head, before it is saved. All figures are the server's. */
+function Preview(props: { projected: BudgetProjection['projected'] }) {
+  const p = props.projected;
   return (
     <div
       className={`preview preview-${p.status.toLowerCase()}`}
@@ -212,7 +250,9 @@ function Preview(props: { projectId: string; costHeadId: string; amountFils: Fil
       <span className="muted">After this expense:</span> Actual {formatFils(p.metrics.actual)} ·
       Remaining {formatFils(p.metrics.remaining)} · Used{' '}
       {formatUtilisation(p.metrics.utilisationBp)} <StatusDot status={p.status} />
-      {p.status === 'APPROVAL_REQUIRED' && <div>This takes the head to its approval level.</div>}
+      {p.status === 'APPROVAL_REQUIRED' && (
+        <div>This takes the head to its approval level, so it needs approval.</div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ bash installer.sh                    # from a checkout; or copy installer.sh alo
 pm2 startup                          # once, to start on boot (run the command it prints)
 ```
 
-It installs what is missing (git, curl, Node 22, pnpm, pm2, MariaDB). It then:
+It installs what is missing (git, curl, Node.js, pnpm, pm2, MariaDB). An existing Node.js 20.19 or newer is used as is; Node.js 22 is installed only when there is none. It then:
 
 - creates the database (`boq` by default) with the two accounts of section 2;
 - writes `backend/.env`;
@@ -40,7 +40,7 @@ For use beyond a single machine, put https in front: set `PUBLIC_URL=https://…
 
 ## 1. What you need
 
-- **Node.js 22** and **pnpm** (version from `package.json`, via `corepack enable`).
+- **Node.js 20.19 or newer** (22 recommended) and **pnpm** (version from `package.json`, via `corepack enable`).
 - **MariaDB 10.11 or newer.**
 - **A reverse proxy** with TLS. The example below is nginx.
 - **Two persistent directories:** attachments, and backups (on a different disk or volume).
@@ -94,8 +94,8 @@ Keep secrets in the service manager's environment file (mode 600), never in the 
 
 ```sh
 cd backend
-DATABASE_URL=mysql://boq_admin:...@host/boq pnpm db:migrate
-DATABASE_URL=mysql://boq_admin:...@host/boq pnpm db:seed          # roles, permissions, cost heads
+DATABASE_URL=mysql://boq_admin:<password>@host/boq pnpm db:migrate
+DATABASE_URL=mysql://boq_admin:<password>@host/boq pnpm db:seed          # roles, permissions, cost heads
 printf '%s' "$FIRST_ADMIN_PASSWORD" | DATABASE_URL=... pnpm admin:bootstrap admin@almailem.example "Name"
 ```
 

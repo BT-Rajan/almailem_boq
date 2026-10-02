@@ -33,6 +33,8 @@ const base = {
   createdAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
+  status: 'POSTED',
+  approval: null,
 };
 const live = {
   ...base,
@@ -201,7 +203,7 @@ describe('Add Expense preview', () => {
     expect(preview.textContent).toContain('Remaining -50.000');
     expect(preview.textContent).toContain('Used 105.00%');
     expect(preview.textContent).toContain('Approval');
-    expect(preview.textContent).toContain('This takes the head to its approval level.');
+    expect(preview.textContent).toContain('This takes the head to its approval level');
     expect(calls.find((c) => c.url.includes('/projection'))?.url).toContain('amountFils=250000');
   });
 
@@ -212,5 +214,96 @@ describe('Add Expense preview', () => {
     await new Promise((r) => setTimeout(r, 400));
     expect(calls.some((c) => c.url.includes('/projection'))).toBe(false);
     expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
+describe('approval of spend past the approval level', () => {
+  const over = {
+    current: { metrics, status: 'WARNING' },
+    projected: {
+      metrics: { budget: 1_000_000, actual: 1_050_000, remaining: -50_000, utilisationBp: 10_500 },
+      status: 'APPROVAL_REQUIRED',
+    },
+  };
+
+  it('asks for the reason and sends it with the expense', async () => {
+    const onSaved = vi.fn();
+    const calls = mockApi({
+      [`GET /api/projects/${P}/boq`]: () => ({ data: boq }),
+      [`GET /api/projects/${P}/cost-heads/${H}/projection`]: () => ({ data: over }),
+      [`POST /api/projects/${P}/expenses`]: () => ({
+        status: 201,
+        data: { ...live, id: 'new', status: 'PENDING_APPROVAL' },
+      }),
+    });
+    render(<ExpenseForm projectId={P} costHeadId={H} onSaved={onSaved} />);
+    await screen.findByRole('option', { name: 'H1 · Head one' });
+    fireEvent.change(screen.getByLabelText('Vendor'), { target: { value: 'Acme' } });
+    fireEvent.change(screen.getByLabelText('Invoice no.'), { target: { value: 'INV-9' } });
+    fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '250' } });
+    const reason = await screen.findByLabelText(/Reason for approval/);
+    const send = screen.getByRole('button', { name: 'Send for approval' }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true); // the reason is mandatory
+    fireEvent.change(reason, { target: { value: 'Extra steel' } });
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+      amountFils: 250_000,
+      approvalReason: 'Extra steel',
+    });
+  });
+
+  it('never asks for a reason below the approval level', async () => {
+    const calls = mockApi({
+      [`GET /api/projects/${P}/boq`]: () => ({ data: boq }),
+      [`GET /api/projects/${P}/cost-heads/${H}/projection`]: () => ({
+        data: { ...over, projected: { metrics, status: 'WARNING' } },
+      }),
+      [`POST /api/projects/${P}/expenses`]: () => ({ status: 201, data: live }),
+    });
+    render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
+    await screen.findByRole('option', { name: 'H1 · Head one' });
+    fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '10' } });
+    await screen.findByRole('status', { name: 'After this expense' });
+    expect(screen.queryByLabelText(/Reason for approval/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add expense' })).toBeTruthy();
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+  });
+
+  it('shows a held expense for what it is, with Cancel request instead of Edit or Reverse', async () => {
+    const waiting = {
+      ...live,
+      id: 'e9',
+      invoiceNo: 'INV-9',
+      amountFils: 300_000,
+      attachment: null,
+      status: 'PENDING_APPROVAL',
+      approval: {
+        id: 'a9',
+        status: 'PENDING',
+        reason: 'Extra steel',
+        requestedBy: { id: 'u1', name: 'Ada' },
+        decidedBy: null,
+        decidedAt: null,
+        decisionComment: null,
+      },
+    };
+    const calls = mockApi({
+      [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({
+        data: { ...detail, expenses: { items: [waiting], total: 1, page: 1, pageSize: 50 } },
+      }),
+      [`POST /api/projects/${P}/expenses/e9/cancel-approval`]: () => ({ data: {} }),
+    });
+    render(<CostHeadPage projectId={P} costHeadId={H} />);
+    const row = (await screen.findByText('INV-9')).closest('tr') as HTMLElement;
+    expect(row.textContent).toContain('Awaiting approval');
+    expect(row.className).toBe('inactive');
+    expect(within(row).queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Reverse' })).toBeNull();
+    fireEvent.click(within(row).getByRole('button', { name: 'Cancel request' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith('/expenses/e9/cancel-approval'))).toBe(true),
+    );
   });
 });

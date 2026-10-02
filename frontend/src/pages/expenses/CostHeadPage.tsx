@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 import { formatFils, type EXPENSE_SORTS, type Expense, type ListParams } from '@boq/shared';
+import { cancelApproval } from '../../api/approvals';
 import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
-import { formatDate } from '../../components/format';
+import { attempt } from '../../api/use-load';
+import { expenseStatusLabel, formatDate } from '../../components/format';
 import { Figures } from '../../components/Figures';
 import { Pager, SortHeader, useList } from '../../components/list';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
@@ -21,11 +23,18 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
     ),
   );
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const close = useCallback(() => setPanel(null), []);
   const done = useCallback(() => {
     setPanel(null);
     detail.reload();
   }, [detail]);
+
+  const cancel = async (e: Expense) => {
+    const err = await attempt(() => cancelApproval(projectId, e.id));
+    setActionError(err);
+    if (!err) detail.reload();
+  };
 
   const d = detail.data;
   if (!d) return <ErrorText message={detail.error} />;
@@ -55,6 +64,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
       </div>
 
       <Figures metrics={m} status={d.status} />
+      <ErrorText message={actionError} />
 
       <div className="table-scroll">
         <table className="table money">
@@ -74,14 +84,29 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
             {d.expenses.items.map((e) => {
               const isReversal = e.reversalOf !== null;
               const reversed = e.reversedAt !== null;
+              const posted = e.status === 'POSTED';
+              const decision = e.approval?.decisionComment;
               return (
-                <tr key={e.id} className={reversed ? 'inactive' : undefined}>
+                <tr key={e.id} className={reversed || !posted ? 'inactive' : undefined}>
                   <td>{formatDate(e.expenseDate)}</td>
                   <td>{e.vendor}</td>
                   <td>
                     {e.invoiceNo}
                     {isReversal && <span className="tag"> Reversal</span>}
                     {reversed && <span className="tag"> Reversed</span>}
+                    {!posted && (
+                      <span
+                        className="tag"
+                        title={
+                          decision
+                            ? `${e.approval?.decidedBy?.name ?? ''}: ${decision}`
+                            : e.approval?.reason
+                        }
+                      >
+                        {' '}
+                        {expenseStatusLabel(e.status)}
+                      </span>
+                    )}
                   </td>
                   <td className={e.amountFils < 0 ? 'num negative' : 'num'}>
                     {formatFils(e.amountFils)}
@@ -98,7 +123,12 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
                   </td>
                   <td>{e.createdBy.name}</td>
                   <td className="num">
-                    {d.editable && !isReversal && !reversed && (
+                    {e.status === 'PENDING_APPROVAL' && (
+                      <button type="button" onClick={() => void cancel(e)}>
+                        Cancel request
+                      </button>
+                    )}
+                    {d.editable && posted && !isReversal && !reversed && (
                       <>
                         <button
                           type="button"

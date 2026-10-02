@@ -2,10 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hasTestDb } from '../db/testing';
 import { auditLogRepository, costHeadsRepository, type CostHeadRecord } from '../repositories';
 import {
+  approveHeld,
   asUser,
   createAuthFixture,
   makeUser,
   signIn,
+  TEST_APPROVAL_REASON,
   type Fixture,
   type Session,
 } from '../auth/testing';
@@ -65,6 +67,7 @@ describe.skipIf(!hasTestDb)('budget status, projection and approval rules (real 
     await call(pm, 'PUT', `/api/projects/${id}/members/${viewerId}`);
     return id;
   };
+  /** Spend that lands in Actual: past the approval level it is approved by the admin. */
   const spend = async (p: string, amountFils: number, head = h1) => {
     const res = await call(pm, 'POST', `/api/projects/${p}/expenses`, {
       costHeadId: head.id,
@@ -72,8 +75,10 @@ describe.skipIf(!hasTestDb)('budget status, projection and approval rules (real 
       invoiceNo: `I-${++seq}`,
       expenseDate: '2026-04-01',
       amountFils,
+      approvalReason: TEST_APPROVAL_REASON,
     });
     if (res.statusCode !== 201) throw new Error(res.body);
+    await approveHeld(fx, admin, res.json().data);
     return res.json().data.id as string;
   };
   const boq = async (p: string) => (await call(pm, 'GET', `/api/projects/${p}/boq`)).json().data;

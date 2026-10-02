@@ -116,8 +116,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
          WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL`,
       );
       // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1,
-      // project_estimates 2, expenses 4, budget_thresholds 1
-      expect(fks).toHaveLength(16);
+      // project_estimates 2, expenses 4, budget_thresholds 1, approvals 4, approval_actions 2
+      expect(fks).toHaveLength(22);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics

@@ -1,7 +1,6 @@
 import type { ReadStream } from 'node:fs';
 import {
   fils,
-  projectStatusSchema,
   type AttachmentType,
   type BudgetProjection,
   type CostHeadDetail,
@@ -16,23 +15,23 @@ import { cleanFileName, sniffType } from '../attachments/sniff';
 import type { AttachmentStorage } from '../attachments/storage';
 import type { Db, DbPool } from '../db/pool';
 import { withTransaction } from '../db/transaction';
-import { calculateBudgetStatus, projectedStatus } from '../domain/control';
-import { budgetMetrics } from '../domain/metrics';
-import { acceptsFinancialChanges } from '../domain/project-status';
+import { expenseStatusFor, INITIAL_APPROVAL_STATUS } from '../domain/approval-status';
 import { AppError } from '../errors/app-error';
 import {
   costHeadsRepository,
   expensesRepository,
-  projectsRepository,
   thresholdsRepository,
   type ExpenseRecord,
 } from '../repositories';
+import { openApprovalRequest } from './approvals';
 import { loadBoq } from './estimates';
+import { headRow, lockOpenProject, projectSpend } from './spend';
 
 /**
  * Expenses (bills): record, correct, reverse, attach. Never deleted: a reversal is a negative entry
  * linked to the original, and the original stops counting toward Actual.
- * Lock order everywhere: project row, then expense row.
+ * An expense that would take its head to the approval level is held for approval (./approvals).
+ * Lock order everywhere: project row, then expense row (./spend).
  */
 
 const EDITABLE = [
@@ -63,16 +62,19 @@ function toExpense(e: ExpenseRecord): Expense {
     createdAt: e.createdAt.toISOString(),
     reversalOf: e.reversalOf,
     reversedAt: e.reversedAt?.toISOString() ?? null,
+    status: e.status,
+    approval: e.approval,
   };
 }
 
-/** Lock the project and check it still accepts spend changes. */
-async function lockOpenProject(tx: Db, projectId: string): Promise<void> {
-  const p = await projectsRepository(tx).lockById(projectId);
-  if (!p) throw AppError.notFound('Project not found');
-  const status = projectStatusSchema.parse(p.status);
-  if (!acceptsFinancialChanges(status)) {
-    throw new AppError('PROJECT_CLOSED', `A ${status} project's spend cannot change`, 409);
+/** Held, rejected and cancelled expenses are settled through their approval request only. */
+function requirePosted(e: ExpenseRecord, doing: string): void {
+  if (e.status !== 'POSTED') {
+    throw AppError.conflict(
+      e.status === 'PENDING_APPROVAL'
+        ? `An expense waiting for approval cannot be ${doing}. Cancel the request instead.`
+        : `A ${e.status.toLowerCase()} expense cannot be ${doing}`,
+    );
   }
 }
 
@@ -93,20 +95,32 @@ async function lockExpense(tx: Db, projectId: string, id: string): Promise<Expen
 }
 
 /**
- * One head's row from the project figures, so it always matches the BoQ. A head the BoQ does not
- * show (inactive, no budget, no spend) has zero figures.
+ * An edit must not move a head to the approval level without approval: if the change adds spend to
+ * a head (a larger amount, or a move to another head) and the control engine says that head would
+ * then need approval, the edit is refused. Less spend is always allowed.
  */
-async function headFigures(db: Db, projectId: string, costHeadId: string) {
-  const boq = await loadBoq(db, projectId);
-  const row = boq.rows.find((r) => r.costHead.id === costHeadId);
-  if (row) return { boq, row };
-  const metrics = budgetMetrics({ budget: fils(0), actual: fils(0) });
-  const thresholds = await thresholdsRepository(db).get();
-  return {
-    boq,
-    row: { metrics, status: calculateBudgetStatus(metrics.utilisationBp, thresholds) },
-  };
+async function refuseEditPastApproval(
+  tx: Db,
+  projectId: string,
+  current: ExpenseRecord,
+  patch: UpdateExpenseInput,
+): Promise<void> {
+  const head = patch.costHeadId ?? current.costHeadId;
+  const amount = patch.amountFils ?? current.amountFils;
+  const added = head === current.costHeadId ? amount - current.amountFils : amount;
+  if (added <= 0) return;
+  const projection = await projectSpend(tx, projectId, head, fils(added));
+  if (projection.projected.status === 'APPROVAL_REQUIRED') {
+    throw new AppError(
+      'APPROVAL_REQUIRED',
+      'This change takes the head to its approval level. Reverse the expense and enter it again with a reason, so it goes for approval.',
+      409,
+    );
+  }
 }
+
+const APPROVAL_REASON_MESSAGE =
+  'This expense takes the head to its approval level. Give a reason for the approval request.';
 
 /** Today in UTC as YYYY-MM-DD: the date of a reversal entry. */
 const todayUtc = () => new Date().toISOString().slice(0, 10);
@@ -134,7 +148,11 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
     ): Promise<CostHeadDetail> {
       const head = await costHeadsRepository(pool).findById(costHeadId);
       if (!head) throw AppError.notFound('Cost head not found');
-      const { boq, row } = await headFigures(pool, projectId, costHeadId);
+      const [boq, thresholds] = await Promise.all([
+        loadBoq(pool, projectId),
+        thresholdsRepository(pool).get(),
+      ]);
+      const row = headRow(boq, costHeadId, thresholds);
       return {
         costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
         metrics: row.metrics,
@@ -153,21 +171,14 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
       if (!(await costHeadsRepository(pool).findById(costHeadId))) {
         throw AppError.notFound('Cost head not found');
       }
-      const { row } = await headFigures(pool, projectId, costHeadId);
-      const thresholds = await thresholdsRepository(pool).get();
-      return {
-        current: { metrics: row.metrics, status: row.status },
-        projected: projectedStatus(
-          {
-            budget: row.metrics.budget,
-            currentActual: row.metrics.actual,
-            newAmount: fils(amountFils),
-          },
-          thresholds,
-        ),
-      };
+      return projectSpend(pool, projectId, costHeadId, fils(amountFils));
     },
 
+    /**
+     * Record an expense. One that would take its head to the approval level (domain/control) is
+     * saved as held, outside Actual, with an approval request carrying the mandatory reason.
+     * Warning needs no approval.
+     */
     async create(
       actor: { userId: string },
       projectId: string,
@@ -176,6 +187,18 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
       return withTransaction(pool, async (tx) => {
         await lockOpenProject(tx, projectId);
         await requireActiveHead(tx, input.costHeadId);
+        const projection = await projectSpend(
+          tx,
+          projectId,
+          input.costHeadId,
+          fils(input.amountFils),
+        );
+        const needsApproval = projection.projected.status === 'APPROVAL_REQUIRED';
+        if (needsApproval && !input.approvalReason) {
+          throw AppError.validation('Approval reason required', [
+            { path: 'approvalReason', message: APPROVAL_REASON_MESSAGE },
+          ]);
+        }
         const id = await expensesRepository(tx).create({
           projectId,
           costHeadId: input.costHeadId,
@@ -185,6 +208,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
           amountFils: fils(input.amountFils),
           description: input.description ?? null,
           createdBy: actor.userId,
+          status: needsApproval ? expenseStatusFor(INITIAL_APPROVAL_STATUS) : 'POSTED',
         });
         const created = await get(tx, projectId, id);
         await recordAudit(tx, 'expense.created', actor, expenseEntity(id), undefined, {
@@ -195,8 +219,18 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
           expenseDate: created.expenseDate,
           amountFils: created.amountFils,
           description: created.description,
+          status: created.status,
         });
-        return created;
+        if (needsApproval && input.approvalReason) {
+          await openApprovalRequest(tx, {
+            expenseId: id,
+            projectId,
+            reason: input.approvalReason,
+            requestedBy: actor.userId,
+            projection,
+          });
+        }
+        return get(tx, projectId, id);
       });
     },
 
@@ -212,10 +246,12 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         if (current.reversalOf || current.reversedAt) {
           throw AppError.conflict('A reversed expense or a reversal entry cannot be edited');
         }
+        requirePosted(current, 'edited');
         const changed = EDITABLE.filter((f) => patch[f] !== undefined && patch[f] !== current[f]);
         if (!changed.length) return toExpense(current);
         if (changed.includes('costHeadId') && patch.costHeadId)
           await requireActiveHead(tx, patch.costHeadId);
+        await refuseEditPastApproval(tx, projectId, current, patch);
 
         const before = Object.fromEntries(changed.map((f) => [f, current[f]]));
         const after = Object.fromEntries(changed.map((f) => [f, patch[f]]));
@@ -238,6 +274,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         if (original.reversalOf)
           throw AppError.conflict('A reversal entry cannot itself be reversed');
         if (original.reversedAt) throw AppError.conflict('This expense is already reversed');
+        requirePosted(original, 'reversed');
 
         const reversalId = await expensesRepository(tx).create({
           projectId,
