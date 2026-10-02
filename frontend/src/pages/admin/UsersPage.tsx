@@ -37,39 +37,43 @@ export function UsersPage() {
         </button>
       </div>
       <ErrorText message={error} />
-      <table className="table">
-        <thead>
-          <tr>
-            <SortHeader label="Name" sortKey="name" list={list} />
-            <SortHeader label="Email" sortKey="email" list={list} />
-            <th>Roles</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data?.items.map((u) => (
-            <tr
-              key={u.id}
-              className="clickable"
-              onClick={() => setPanel({ mode: 'edit', id: u.id })}
-            >
-              <td>{u.name}</td>
-              <td>{u.email}</td>
-              <td>{u.roles.map((r) => r.name).join(', ') || '—'}</td>
-              <td>
-                <span className={`tag tag-${statusLabel(u).toLowerCase()}`}>{statusLabel(u)}</span>
-              </td>
-            </tr>
-          ))}
-          {data && data.items.length === 0 && (
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={4} className="muted">
-                No users found
-              </td>
+              <SortHeader label="Name" sortKey="name" list={list} />
+              <SortHeader label="Email" sortKey="email" list={list} />
+              <th>Roles</th>
+              <th>Status</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data?.items.map((u) => (
+              <tr
+                key={u.id}
+                className="clickable"
+                onClick={() => setPanel({ mode: 'edit', id: u.id })}
+              >
+                <td>{u.name}</td>
+                <td>{u.email}</td>
+                <td>{u.roles.map((r) => r.name).join(', ') || '—'}</td>
+                <td>
+                  <span className={`tag tag-${statusLabel(u).toLowerCase()}`}>
+                    {statusLabel(u)}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {data && data.items.length === 0 && (
+              <tr>
+                <td colSpan={4} className="muted">
+                  No users found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <Pager data={data} page={list.page} setPage={list.setPage} noun="users" loading={loading} />
 
       {panel && (

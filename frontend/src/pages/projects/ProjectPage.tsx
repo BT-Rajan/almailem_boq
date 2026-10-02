@@ -154,14 +154,18 @@ function Boq(props: { projectId: string }) {
         </label>
         <span className="spacer" />
         {boq.data.editable && (
-          <button type="button" className="btn-primary" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="btn-primary primary-action"
+            onClick={() => setAdding(true)}
+          >
             Add expense
           </button>
         )}
       </div>
       <BoqTable boq={boq.data} onEdit={setEditing} projectId={projectId} />
       {adding && (
-        <SlideOver title="Add expense" onClose={closeAdd}>
+        <SlideOver title="Add expense" onClose={closeAdd} sheet>
           <ExpenseForm
             projectId={projectId}
             onSaved={() => {
@@ -172,7 +176,7 @@ function Boq(props: { projectId: string }) {
         </SlideOver>
       )}
       {editing && (
-        <SlideOver title={`Budget: ${editing.costHead.code}`} onClose={close}>
+        <SlideOver title={`Budget: ${editing.costHead.code}`} onClose={close} sheet>
           <BudgetForm
             projectId={projectId}
             row={editing}
@@ -264,38 +268,40 @@ function Members(props: { projectId: string }) {
   return (
     <div>
       <ErrorText message={error ?? members.error} />
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role in project</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {members.data?.map((m) => (
-            <tr key={m.id}>
-              <td>{m.name}</td>
-              <td>{m.email}</td>
-              <td className="muted">
-                {m.isOwner ? 'Owner' : m.removable ? 'Member' : 'Administrator'}
-              </td>
-              <td className="num">
-                {m.removable && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => run(() => removeMember(projectId, m.id))}
-                  >
-                    Remove
-                  </button>
-                )}
-              </td>
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role in project</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {members.data?.map((m) => (
+              <tr key={m.id}>
+                <td>{m.name}</td>
+                <td>{m.email}</td>
+                <td className="muted">
+                  {m.isOwner ? 'Owner' : m.removable ? 'Member' : 'Administrator'}
+                </td>
+                <td className="num">
+                  {m.removable && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(() => removeMember(projectId, m.id))}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="row add-member">
         <UserPicker label="Person to add" value={userId} onChange={setUserId} exclude={present} />
         <button

@@ -47,58 +47,60 @@ export function CostHeadsPage() {
         </button>
       </div>
       <ErrorText message={actionError ?? error} />
-      <table className="table">
-        <thead>
-          <tr>
-            <th className="num">#</th>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th className="num">Order</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data?.map((h, i) => (
-            <tr
-              key={h.id}
-              className={h.active ? 'clickable' : 'clickable inactive'}
-              onClick={() => setPanel(h)}
-            >
-              <td className="num">{i + 1}</td>
-              <td>{h.code}</td>
-              <td>{h.name}</td>
-              <td className="muted">{h.description ?? ''}</td>
-              <td>{h.active ? 'Active' : 'Inactive'}</td>
-              <td className="num" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  aria-label={`Move ${h.code} up`}
-                  disabled={busy || i === 0}
-                  onClick={() => move(i, i - 1)}
-                >
-                  ↑
-                </button>{' '}
-                <button
-                  type="button"
-                  aria-label={`Move ${h.code} down`}
-                  disabled={busy || i === data.length - 1}
-                  onClick={() => move(i, i + 1)}
-                >
-                  ↓
-                </button>
-              </td>
-            </tr>
-          ))}
-          {data && data.length === 0 && (
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={6} className="muted">
-                No cost heads yet. Add them here or load the seed file.
-              </td>
+              <th className="num">#</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th className="num">Order</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data?.map((h, i) => (
+              <tr
+                key={h.id}
+                className={h.active ? 'clickable' : 'clickable inactive'}
+                onClick={() => setPanel(h)}
+              >
+                <td className="num">{i + 1}</td>
+                <td>{h.code}</td>
+                <td>{h.name}</td>
+                <td className="muted">{h.description ?? ''}</td>
+                <td>{h.active ? 'Active' : 'Inactive'}</td>
+                <td className="num" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    aria-label={`Move ${h.code} up`}
+                    disabled={busy || i === 0}
+                    onClick={() => move(i, i - 1)}
+                  >
+                    ↑
+                  </button>{' '}
+                  <button
+                    type="button"
+                    aria-label={`Move ${h.code} down`}
+                    disabled={busy || i === data.length - 1}
+                    onClick={() => move(i, i + 1)}
+                  >
+                    ↓
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {data && data.length === 0 && (
+              <tr>
+                <td colSpan={6} className="muted">
+                  No cost heads yet. Add them here or load the seed file.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {panel && (
         <SlideOver title={panel === 'new' ? 'New cost head' : 'Edit cost head'} onClose={close}>

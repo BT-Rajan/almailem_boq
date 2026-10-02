@@ -44,7 +44,11 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         {!d.costHead.active && <span className="tag">Inactive</span>}
         <span className="spacer" />
         {d.editable && d.costHead.active && (
-          <button type="button" className="btn-primary" onClick={() => setPanel({ kind: 'add' })}>
+          <button
+            type="button"
+            className="btn-primary primary-action"
+            onClick={() => setPanel({ kind: 'add' })}
+          >
             Add expense
           </button>
         )}
@@ -52,71 +56,78 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
 
       <Figures metrics={m} status={d.status} />
 
-      <table className="table money">
-        <thead>
-          <tr>
-            <SortHeader label="Date" sortKey="date" list={detail} />
-            <SortHeader label="Vendor" sortKey="vendor" list={detail} />
-            <SortHeader label="Invoice" sortKey="invoice" list={detail} />
-            <SortHeader label="Amount" sortKey="amount" list={detail} className="num" />
-            <th>Description</th>
-            <th>Bill</th>
-            <th>By</th>
-            <th className="num">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {d.expenses.items.map((e) => {
-            const isReversal = e.reversalOf !== null;
-            const reversed = e.reversedAt !== null;
-            return (
-              <tr key={e.id} className={reversed ? 'inactive' : undefined}>
-                <td>{formatDate(e.expenseDate)}</td>
-                <td>{e.vendor}</td>
-                <td>
-                  {e.invoiceNo}
-                  {isReversal && <span className="tag"> Reversal</span>}
-                  {reversed && <span className="tag"> Reversed</span>}
-                </td>
-                <td className={e.amountFils < 0 ? 'num negative' : 'num'}>
-                  {formatFils(e.amountFils)}
-                </td>
-                <td className="muted">{e.description ?? ''}</td>
-                <td>
-                  {e.attachment && (
-                    <a href={attachmentUrl(projectId, e.id)} title={e.attachment.name}>
-                      View
-                    </a>
-                  )}
-                </td>
-                <td>{e.createdBy.name}</td>
-                <td className="num">
-                  {d.editable && !isReversal && !reversed && (
-                    <>
-                      <button type="button" onClick={() => setPanel({ kind: 'edit', expense: e })}>
-                        Edit
-                      </button>{' '}
-                      <button
-                        type="button"
-                        onClick={() => setPanel({ kind: 'reverse', expense: e })}
-                      >
-                        Reverse
-                      </button>
-                    </>
-                  )}
+      <div className="table-scroll">
+        <table className="table money">
+          <thead>
+            <tr>
+              <SortHeader label="Date" sortKey="date" list={detail} />
+              <SortHeader label="Vendor" sortKey="vendor" list={detail} />
+              <SortHeader label="Invoice" sortKey="invoice" list={detail} />
+              <SortHeader label="Amount" sortKey="amount" list={detail} className="num" />
+              <th>Description</th>
+              <th>Bill</th>
+              <th>By</th>
+              <th className="num">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.expenses.items.map((e) => {
+              const isReversal = e.reversalOf !== null;
+              const reversed = e.reversedAt !== null;
+              return (
+                <tr key={e.id} className={reversed ? 'inactive' : undefined}>
+                  <td>{formatDate(e.expenseDate)}</td>
+                  <td>{e.vendor}</td>
+                  <td>
+                    {e.invoiceNo}
+                    {isReversal && <span className="tag"> Reversal</span>}
+                    {reversed && <span className="tag"> Reversed</span>}
+                  </td>
+                  <td className={e.amountFils < 0 ? 'num negative' : 'num'}>
+                    {formatFils(e.amountFils)}
+                  </td>
+                  <td className="muted name" title={e.description ?? undefined}>
+                    {e.description ?? ''}
+                  </td>
+                  <td>
+                    {e.attachment && (
+                      <a href={attachmentUrl(projectId, e.id)} title={e.attachment.name}>
+                        View
+                      </a>
+                    )}
+                  </td>
+                  <td>{e.createdBy.name}</td>
+                  <td className="num">
+                    {d.editable && !isReversal && !reversed && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setPanel({ kind: 'edit', expense: e })}
+                        >
+                          Edit
+                        </button>{' '}
+                        <button
+                          type="button"
+                          onClick={() => setPanel({ kind: 'reverse', expense: e })}
+                        >
+                          Reverse
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {d.expenses.items.length === 0 && (
+              <tr>
+                <td colSpan={8} className="muted">
+                  No expenses on this head yet
                 </td>
               </tr>
-            );
-          })}
-          {d.expenses.items.length === 0 && (
-            <tr>
-              <td colSpan={8} className="muted">
-                No expenses on this head yet
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
       <Pager data={d.expenses} page={detail.page} setPage={detail.setPage} noun="entries" />
 
       {panel && (
@@ -129,6 +140,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
                 : 'Reverse expense'
           }
           onClose={close}
+          sheet
         >
           {panel.kind === 'reverse' ? (
             <ReverseForm

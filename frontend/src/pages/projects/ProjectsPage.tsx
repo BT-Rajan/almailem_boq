@@ -25,39 +25,41 @@ export function ProjectsPage() {
         </a>
       </div>
       <ErrorText message={list.error} />
-      <table className="table">
-        <thead>
-          <tr>
-            <SortHeader label="Code" sortKey="code" list={list} />
-            <SortHeader label="Name" sortKey="name" list={list} />
-            <SortHeader label="Status" sortKey="status" list={list} />
-            <th>Owner</th>
-            <SortHeader label="Start" sortKey="start" list={list} />
-            <SortHeader label="End" sortKey="end" list={list} />
-          </tr>
-        </thead>
-        <tbody>
-          {data?.items.map((p) => (
-            <tr key={p.id} className="clickable" onClick={() => navigate(`#/projects/${p.id}`)}>
-              <td>
-                <a href={`#/projects/${p.id}`}>{p.code}</a>
-              </td>
-              <td>{p.name}</td>
-              <td>{statusLabel(p.status)}</td>
-              <td>{p.ownerName}</td>
-              <td>{formatDate(p.startDate)}</td>
-              <td>{formatDate(p.endDate)}</td>
-            </tr>
-          ))}
-          {data && data.items.length === 0 && (
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={6} className="muted">
-                No projects found
-              </td>
+              <SortHeader label="Code" sortKey="code" list={list} />
+              <SortHeader label="Name" sortKey="name" list={list} />
+              <SortHeader label="Status" sortKey="status" list={list} />
+              <th>Owner</th>
+              <SortHeader label="Start" sortKey="start" list={list} />
+              <SortHeader label="End" sortKey="end" list={list} />
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data?.items.map((p) => (
+              <tr key={p.id} className="clickable" onClick={() => navigate(`#/projects/${p.id}`)}>
+                <td>
+                  <a href={`#/projects/${p.id}`}>{p.code}</a>
+                </td>
+                <td>{p.name}</td>
+                <td>{statusLabel(p.status)}</td>
+                <td>{p.ownerName}</td>
+                <td>{formatDate(p.startDate)}</td>
+                <td>{formatDate(p.endDate)}</td>
+              </tr>
+            ))}
+            {data && data.items.length === 0 && (
+              <tr>
+                <td colSpan={6} className="muted">
+                  No projects found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <Pager
         data={data}
         page={list.page}

@@ -13,7 +13,8 @@
     "test": "pnpm -r test",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test:ipad": "pnpm --filter @boq/frontend test:ipad"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -426,3 +426,160 @@ button.sort {
 .search-item a {
   text-decoration: none;
 }
+
+/* ---------- Layout at every size: nothing scrolls the page sideways ---------- */
+.shell-header {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 44px;
+  padding: 4px 16px;
+  row-gap: 4px;
+}
+.nav {
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.global-search input {
+  width: min(260px, 40vw);
+}
+.search-results {
+  width: min(420px, 92vw);
+}
+.toolbar {
+  flex-wrap: wrap;
+}
+.figures {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+/* Long text in money tables is cut with an ellipsis (full text on hover) so the figures and the
+   Action column stay in view. */
+.table.money td.name {
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Overlays sit above everything on the page, including sticky table cells. */
+.slideover-backdrop {
+  z-index: 20;
+}
+/* Money tables keep one line per row and scroll sideways rather than squeeze. */
+.table.money th,
+.table.money td {
+  white-space: nowrap;
+}
+/* Wide tables scroll inside their panel, with the first column kept in view. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.table-scroll .table th:first-child,
+.table-scroll .table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.table-scroll .table tr.clickable:hover td:first-child {
+  background: var(--bg);
+}
+.bill {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-end;
+}
+/* The camera button is for touch devices; a desktop picks files the usual way. */
+.bill .camera {
+  display: none;
+}
+
+/* ---------- Touch devices (iPad): 44 px targets, bottom sheets, thumb-reach actions ---------- */
+@media (pointer: coarse) {
+  :root {
+    font-size: 15px;
+  }
+  button,
+  input,
+  select,
+  textarea,
+  a.button-link {
+    min-height: 44px;
+  }
+  button,
+  a.button-link {
+    min-width: 44px;
+    padding: 0 12px;
+  }
+  .btn-link {
+    min-height: 44px;
+  }
+  input[type='checkbox'] {
+    min-height: 0;
+    width: 22px;
+    height: 22px;
+  }
+  label.check {
+    min-height: 44px;
+    align-items: center;
+  }
+  .nav a,
+  .table a,
+  .toolbar a,
+  .actions a,
+  .search-item a,
+  .pager a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .table th,
+  .table td {
+    height: 44px;
+    padding: 4px 10px;
+  }
+  button.sort {
+    min-height: 44px;
+    padding: 0;
+  }
+  input.amount {
+    width: 160px;
+  }
+  .bill .camera {
+    display: inline-flex;
+    flex-direction: column;
+  }
+  /* Bottom sheet: Add Expense and other quick actions rise from the bottom, full width. */
+  .slideover-backdrop:has(.sheet) {
+    align-items: flex-end;
+  }
+  .slideover.sheet {
+    width: 100%;
+    height: auto;
+    max-height: 88vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+  }
+  /* The sheet's main button stays at the bottom, under the thumb. */
+  .sheet .form > button[type='submit'] {
+    position: sticky;
+    bottom: 0;
+    margin-bottom: env(safe-area-inset-bottom, 0);
+  }
+  /* The page's main action sits in the bottom-right corner, within thumb reach. */
+  .primary-action {
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    min-height: 52px;
+    padding: 0 20px;
+    border-radius: 26px;
+  }
+  .shell-main {
+    padding-bottom: 88px; /* room for the corner action */
+  }
+}

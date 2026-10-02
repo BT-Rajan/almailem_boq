@@ -117,15 +117,29 @@ export function ExpenseForm(props: {
         Description
         <textarea value={v.description} onChange={set('description')} rows={2} maxLength={2000} />
       </label>
-      <label>
-        Bill (PDF, JPG or PNG)
-        {e?.attachment && <small className="muted"> replaces {e.attachment.name}</small>}
-        <input
-          type="file"
-          accept={ATTACHMENT_TYPES.join(',')}
-          onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
-        />
-      </label>
+      <div className="bill">
+        <label>
+          Bill (PDF, JPG or PNG)
+          {e?.attachment && <small className="muted"> replaces {e.attachment.name}</small>}
+          <input
+            type="file"
+            accept={ATTACHMENT_TYPES.join(',')}
+            onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
+          />
+        </label>
+        {/* On a tablet or phone this opens the rear camera straight away. */}
+        <label className="camera">
+          Take photo
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            capture="environment"
+            aria-label="Take a photo of the bill"
+            onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
+          />
+        </label>
+        {file && <small className="muted">Attaching {file.name}</small>}
+      </div>
       <ErrorText message={error ?? boq.error} />
       <button className="btn-primary" type="submit" disabled={busy || amountFils === null}>
         {e ? 'Save changes' : 'Add expense'}

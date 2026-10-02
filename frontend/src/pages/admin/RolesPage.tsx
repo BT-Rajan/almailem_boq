@@ -11,24 +11,26 @@ export function RolesPage() {
         <h1>Roles</h1>
       </div>
       <ErrorText message={error} />
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Role</th>
-            <th>Description</th>
-            <th>Permissions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data?.map((r) => (
-            <tr key={r.id}>
-              <td>{r.name}</td>
-              <td>{r.description ?? '—'}</td>
-              <td className="perms">{r.permissions.join(', ')}</td>
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Description</th>
+              <th>Permissions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data?.map((r) => (
+              <tr key={r.id}>
+                <td>{r.name}</td>
+                <td>{r.description ?? '—'}</td>
+                <td className="perms">{r.permissions.join(', ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {loading && <p className="muted">Loading…</p>}
     </section>
   );

@@ -45,52 +45,54 @@ function RulesForm(props: { rules: ThresholdSettings; onSaved: () => void }) {
         Each cost head's status follows how much of its budget is used. A head with spend but no
         budget always needs approval.
       </p>
-      <table className="table">
-        <tbody>
-          <tr>
-            <td>
-              <StatusDot status="NORMAL" />
-            </td>
-            <td>below the warning level</td>
-          </tr>
-          <tr>
-            <td>
-              <StatusDot status="WARNING" />
-            </td>
-            <td>
-              <label className="inline">
-                from{' '}
-                <input
-                  className={warningBp === null ? 'amount invalid' : 'amount'}
-                  inputMode="decimal"
-                  aria-label="Warning level (%)"
-                  value={warning}
-                  onChange={(e) => setWarning(e.target.value)}
-                />{' '}
-                % of budget
-              </label>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <StatusDot status="APPROVAL_REQUIRED" />
-            </td>
-            <td>
-              <label className="inline">
-                from{' '}
-                <input
-                  className={approvalBp === null ? 'amount invalid' : 'amount'}
-                  inputMode="decimal"
-                  aria-label="Approval level (%)"
-                  value={approval}
-                  onChange={(e) => setApproval(e.target.value)}
-                />{' '}
-                % of budget (at most 100)
-              </label>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="table">
+          <tbody>
+            <tr>
+              <td>
+                <StatusDot status="NORMAL" />
+              </td>
+              <td>below the warning level</td>
+            </tr>
+            <tr>
+              <td>
+                <StatusDot status="WARNING" />
+              </td>
+              <td>
+                <label className="inline">
+                  from{' '}
+                  <input
+                    className={warningBp === null ? 'amount invalid' : 'amount'}
+                    inputMode="decimal"
+                    aria-label="Warning level (%)"
+                    value={warning}
+                    onChange={(e) => setWarning(e.target.value)}
+                  />{' '}
+                  % of budget
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <StatusDot status="APPROVAL_REQUIRED" />
+              </td>
+              <td>
+                <label className="inline">
+                  from{' '}
+                  <input
+                    className={approvalBp === null ? 'amount invalid' : 'amount'}
+                    inputMode="decimal"
+                    aria-label="Approval level (%)"
+                    value={approval}
+                    onChange={(e) => setApproval(e.target.value)}
+                  />{' '}
+                  % of budget (at most 100)
+                </label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <ErrorText message={error} />
       <button
         className="btn-primary"

@@ -128,30 +128,32 @@ export function UserDetail(props: { id: string; onChanged: () => void }) {
       ))}
 
       <h3>Project access</h3>
-      <table className="table">
-        <tbody>
-          {u.projects.map((p) => (
-            <tr key={p.id}>
-              <td>{p.code}</td>
-              <td>{p.name}</td>
-              <td className="num">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => run(() => revokeProject(u.id, p.id))}
-                >
-                  Revoke
-                </button>
-              </td>
-            </tr>
-          ))}
-          {u.projects.length === 0 && (
-            <tr>
-              <td className="muted">No project access</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="table">
+          <tbody>
+            {u.projects.map((p) => (
+              <tr key={p.id}>
+                <td>{p.code}</td>
+                <td>{p.name}</td>
+                <td className="num">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => revokeProject(u.id, p.id))}
+                  >
+                    Revoke
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {u.projects.length === 0 && (
+              <tr>
+                <td className="muted">No project access</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div className="row">
         <select
           aria-label="Project to grant"

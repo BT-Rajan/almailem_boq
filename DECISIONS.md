@@ -207,3 +207,23 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
   - The three lists it replaced were already short, and the pattern adds sorting and filters they did not have. The saving comes as more lists adopt it (reports in Chunk 14, the audit viewer in Chunk 16).
   - Whole codebase: 7,656 to 8,049 source lines, including the new global search.
 - **Performance and indexes:** migration 0012 and PERFORMANCE.md.
+
+## D25. iPad (Chunk 17, review these)
+- **Touch rules apply on touch devices only** (`@media (pointer: coarse)`), so desktop stays dense. On a touch screen:
+  - every button, link, field and checkbox label is at least 44 px;
+  - Add Expense, edit/reverse expense and the budget edit open as **bottom sheets** (the existing `SlideOver` with `sheet`; no new component), whose main button stays at the bottom of the sheet;
+  - the page's main action (**Add expense** on the project BoQ and the cost-head page) sits in the **bottom-right corner**, where a thumb rests holding an iPad.
+- **At every size:**
+  - the page never scrolls sideways: the header wraps, the nav scrolls within itself, and toolbars wrap;
+  - wide tables scroll inside their panel with the **first column kept in view**;
+  - money tables keep one line per row, with long names and descriptions cut by an ellipsis (full text on hover), so that in landscape every column through **Action** fits without scrolling.
+- **Camera:** the bill field gains a "Take photo" input with `capture="environment"` (rear camera, JPEG/PNG), shown on touch devices only. The ordinary file picker stays for PDFs.
+- **Checks:** `pnpm test:ipad` runs Playwright on the real UI at 1024x768 and 768x1024 with touch, API mocked (no database). For eight screens it checks no sideways page scroll and 44 px targets. It also checks:
+  - the sticky first column and one-line money rows;
+  - that the landscape BoQ fits through Action;
+  - that Add Expense is a full-width bottom sheet with nothing painted over it and its button under the thumb;
+  - the corner action's position, and the camera input.
+  Screenshots land in `frontend/test-results/` (ignored by git). Removing the touch CSS fails 20 of the checks.
+- **Not in `pnpm test`:** the iPad checks need a Chromium build, which this container pre-installs. Elsewhere, run `pnpm --filter @boq/frontend exec playwright install chromium` once. CI should run `pnpm test:ipad` as its own step.
+- **Approvals as bottom sheets:** there are no approval actions yet (Chunk 10 was skipped). When it lands, its actions should use `SlideOver sheet` and the `primary-action` class.
+- **Found by looking at the screenshots and then covered by checks:** sticky table cells and the corner button painted over the open sheet (the backdrop had no stacking level), and the portrait BoQ squeezed long names into tall rows instead of scrolling.

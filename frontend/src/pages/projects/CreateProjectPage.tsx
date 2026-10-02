@@ -99,47 +99,49 @@ function BoqStep(props: { projectId: string }) {
   return (
     <div>
       <p className="muted">Budget per cost head in KWD. Leave empty for no budget.</p>
-      <table className="table money">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Cost head</th>
-            <th className="num">Budget (KWD)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.costHead.id}>
-              <td>{r.costHead.code}</td>
-              <td>{r.costHead.name}</td>
-              <td className="num">
-                <input
-                  className={parsed[i]?.value === null ? 'amount invalid' : 'amount'}
-                  inputMode="decimal"
-                  aria-label={`Budget ${r.costHead.code}`}
-                  value={textOf(r.costHead.id, r.metrics.budget)}
-                  onChange={(e) => setDrafts({ ...drafts, [r.costHead.id]: e.target.value })}
-                />
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
+      <div className="table-scroll">
+        <table className="table money">
+          <thead>
             <tr>
-              <td colSpan={3} className="muted">
-                No active cost heads yet. An administrator adds them in Cost heads.
-              </td>
+              <th>Code</th>
+              <th>Cost head</th>
+              <th className="num">Budget (KWD)</th>
             </tr>
-          )}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th colSpan={2}>Total</th>
-            <th className="num" aria-label="Running total">
-              {draftTotal === null ? 'Check the highlighted amounts' : formatFils(draftTotal)}
-            </th>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.costHead.id}>
+                <td>{r.costHead.code}</td>
+                <td>{r.costHead.name}</td>
+                <td className="num">
+                  <input
+                    className={parsed[i]?.value === null ? 'amount invalid' : 'amount'}
+                    inputMode="decimal"
+                    aria-label={`Budget ${r.costHead.code}`}
+                    value={textOf(r.costHead.id, r.metrics.budget)}
+                    onChange={(e) => setDrafts({ ...drafts, [r.costHead.id]: e.target.value })}
+                  />
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={3} className="muted">
+                  No active cost heads yet. An administrator adds them in Cost heads.
+                </td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colSpan={2}>Total</th>
+              <th className="num" aria-label="Running total">
+                {draftTotal === null ? 'Check the highlighted amounts' : formatFils(draftTotal)}
+              </th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
       <ErrorText message={error} />
       <div className="row actions">
         <span className="spacer" />
