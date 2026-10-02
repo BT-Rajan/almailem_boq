@@ -38,7 +38,7 @@ The database is created only if it does not exist; otherwise it is used as it is
 | `MYSQL_ROOT_PASSWORD` | Unset (root through the unix socket) |
 | `PORT`, `FRONTEND_PORT` | `3100`, `7180` |
 | `PUBLIC_URL` | `http://<server IP>:7180`. Sign-in also works from the server's other addresses on that port. |
-| `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | `admin@almailem.local`, `Administrator`, generated. The generated login is printed at the end and saved in `.install.env`. |
+| `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` | Not set: no administrator is created, and the summary says to run `bash create-admin.sh`, which asks for email, name and password. With `ADMIN_EMAIL` (and no password) one is created with a generated password, printed at the end and saved in `.install.env`. |
 | `BRANCH`, `REPO_URL`, `SKIP_PULL=1` | The current branch. `SKIP_PULL=1` deploys the checkout as it is. |
 
 For use beyond a single machine, put https in front: set `PUBLIC_URL=https://…` (this turns on `Secure` cookies) and point the TLS proxy at port 7180. Alternatively, use the nginx setup of sections 6–7 instead of `boq-web`.

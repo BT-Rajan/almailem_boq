@@ -253,8 +253,13 @@ export function createUserAdminService(pool: DbPool) {
      * administration. Refused once any enabled user can manage users, so it cannot be used
      * to slip in a second administrator later.
      */
+    /** Is there already an enabled user who can manage users? Then first-run setup is over. */
+    async hasAdministrator(): Promise<boolean> {
+      return (await usersRepository(pool).countEnabledHolding(USER_ADMIN_PERMISSION)) > 0;
+    },
+
     async bootstrapAdmin(input: { email: string; name: string; password: string }) {
-      if ((await usersRepository(pool).countEnabledHolding(USER_ADMIN_PERMISSION)) > 0) {
+      if (await this.hasAdministrator()) {
         throw AppError.conflict('An administrator already exists; use the admin screens');
       }
       const codes = await rolePermissionsRepository(pool).listCodesByRole();

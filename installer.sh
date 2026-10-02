@@ -24,7 +24,8 @@
 #   HOST                               web server bind address (default 0.0.0.0)
 #   PUBLIC_URL                         how browsers reach it, e.g. http://192.168.1.20:7180 or
 #                                      https://boq.example.com (default http://localhost:FRONTEND_PORT)
-#   ADMIN_EMAIL ADMIN_NAME ADMIN_PASSWORD   first administrator (only when there are no users yet)
+#   ADMIN_EMAIL ADMIN_NAME ADMIN_PASSWORD   first administrator (only when there are no users yet);
+#                                      without ADMIN_EMAIL it is left to you: bash create-admin.sh
 #   APP_NAME                           pm2 name prefix (default boq -> boq-api, boq-web)
 #   HEALTH_TIMEOUT                     seconds to wait for the app (default 60)
 #   INTERACTIVE=1                      ask for each setting on the terminal instead
@@ -393,6 +394,10 @@ step "10/12 First administrator"
 USERS="$(MYSQL_PWD="$DB_PASS" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -N -e "SELECT COUNT(*) FROM \`$DB_NAME\`.users")"
 if [ "$USERS" != 0 ]; then
   ok "$USERS user(s) already exist — sign in with an existing account"
+elif [ -z "${ADMIN_EMAIL:-}" ] && ! is_tty; then
+  # You choose the first login yourself, after the install: bash create-admin.sh
+  NEED_ADMIN=1
+  warn "No administrator yet — create one with: bash create-admin.sh"
 else
   ADMIN_EMAIL="${ADMIN_EMAIL:-$(ask "Administrator email" "admin@almailem.local")}"
   ADMIN_NAME="${ADMIN_NAME:-$(ask "Administrator name" "Administrator")}"
@@ -470,6 +475,7 @@ ok "pm2 processes online"
 
 printf '\n\033[1;32mAlmailem BoQ Manager is running\033[0m  (%s @ %s)\n' "$BRANCH" "$(git rev-parse --short HEAD)"
 echo "  Open:          $PUBLIC_URL"
+[ -z "${NEED_ADMIN:-}" ] || printf '  \033[1;33mFirst login:   bash create-admin.sh\033[0m  (asks for email, name and password)\n'
 [ -z "${NEW_ADMIN:-}" ] || printf '  \033[1;33mSign in:       %s\033[0m  (also saved in .install.env)\n' "$NEW_ADMIN"
 echo "  Manage:        pm2 status | pm2 logs $API_APP | pm2 restart $ECOSYSTEM"
 echo "  Update later:  bash installer.sh     (pulls, rebuilds, migrates, restarts)"
