@@ -111,17 +111,39 @@ ok "node $(node -v), pnpm $(pnpm -v), pm2 $PM2_V"
 step "3/12 Code"
 if [ -e "$APP_DIR/.git" ]; then  # a directory, or a file in a git worktree
   cd "$APP_DIR"
-  BRANCH="${BRANCH:-$(git branch --show-current)}"
+  # The current branch, once there are commits (a fresh 'git init' sits on an unborn 'master').
+  git rev-parse -q --verify HEAD >/dev/null && BRANCH="${BRANCH:-$(git branch --show-current)}"
+  BRANCH="${BRANCH:-main}"
   if [ "${SKIP_PULL:-0}" = "1" ]; then
     info "SKIP_PULL=1 — deploying the checkout as it is"
   else
+    # Pull from 'origin', else the checkout's only remote, else REPO_URL (added as 'origin').
+    REMOTE=origin
+    if ! git remote get-url origin >/dev/null 2>&1; then
+      if [ "$(git remote | wc -l)" = 1 ]; then
+        REMOTE="$(git remote)"
+      else
+        warn "No 'origin' remote — adding $REPO_URL"
+        git remote add origin "$REPO_URL"
+      fi
+    fi
     if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
       warn "Local changes found — stashing them (recover with: git stash list)"
       git stash push -m "installer.sh $(date +%Y%m%d-%H%M%S)" >/dev/null
     fi
-    git fetch --prune origin "$BRANCH"
-    git checkout "$BRANCH" >/dev/null 2>&1
-    git pull --ff-only origin "$BRANCH"
+    git fetch --prune "$REMOTE" "$BRANCH" \
+      || die "Could not fetch '$BRANCH' from $(git remote get-url "$REMOTE"). Check the server can reach it (a private repository needs a deploy key or token), set REPO_URL=..., or run with SKIP_PULL=1 to deploy the code already here."
+    if ! git rev-parse -q --verify HEAD >/dev/null; then
+      # e.g. a downloaded copy followed by 'git init': nothing committed yet, so take the branch as is.
+      warn "This folder has no commits yet — taking '$BRANCH' from $REMOTE (git-ignored files such as backend/.env are kept)"
+      git checkout -q -f -B "$BRANCH" "$REMOTE/$BRANCH"
+    elif git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+      git checkout -q "$BRANCH"
+    else
+      git checkout -q -b "$BRANCH" "$REMOTE/$BRANCH"
+    fi
+    git merge --ff-only "$REMOTE/$BRANCH" >/dev/null \
+      || die "Local branch '$BRANCH' has commits that are not on $REMOTE; resolve that by hand, or run with SKIP_PULL=1."
   fi
 else
   BRANCH="${BRANCH:-main}"
