@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
 import { LoginPage } from './pages/LoginPage';
+import { CostHeadsPage } from './pages/admin/CostHeadsPage';
 import { RolesPage } from './pages/admin/RolesPage';
 import { UsersPage } from './pages/admin/UsersPage';
 
 const PAGES = {
   '#/admin/users': { label: 'Users', Page: UsersPage },
   '#/admin/roles': { label: 'Roles', Page: RolesPage },
+  '#/admin/cost-heads': { label: 'Cost heads', Page: CostHeadsPage },
 } as const;
 type Route = keyof typeof PAGES;
 

@@ -3,9 +3,9 @@
 import { existsSync } from 'node:fs';
 import { loadEnv } from '../config/env';
 import { migrateDown, migrateDownAll, migrateUp, migrationStatus } from './migrator';
-import { ACCESS_SEED_FILE, MIGRATIONS_DIR } from './paths';
+import { ACCESS_SEED_FILE, COST_HEADS_SEED_FILE, MIGRATIONS_DIR } from './paths';
 import { createPool } from './pool';
-import { loadAccessSeed, seedAccess } from './seed';
+import { loadAccessSeed, loadCostHeadSeed, seedAccess, seedCostHeads } from './seed';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 const url = loadEnv().DATABASE_URL;
@@ -40,8 +40,10 @@ switch (command) {
   case 'seed': {
     const pool = createPool(url, 2);
     const counts = await seedAccess(pool, await loadAccessSeed(ACCESS_SEED_FILE));
+    const heads = await seedCostHeads(pool, await loadCostHeadSeed(COST_HEADS_SEED_FILE));
     await pool.end();
     console.log(`Seeded ${counts.roles} roles and ${counts.permissions} permissions`);
+    console.log(`Cost heads: ${heads.inserted} added, ${heads.existing} already present`);
     break;
   }
   default:

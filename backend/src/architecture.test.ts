@@ -84,3 +84,51 @@ describe('architecture: access control goes through permissions only', () => {
       expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\.auth\b|\.permissions\b/);
   });
 });
+
+describe('architecture: cost heads are data, never code', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f));
+
+  // Names from the seed file, plus the CSI MasterFormat division titles the workbook is built on,
+  // so the check bites even before the real list is supplied.
+  const seeded = (
+    JSON.parse(readFileSync(join(REPO_ROOT, 'database/seed/cost-heads.json'), 'utf8')) as {
+      costHeads: { name: string }[];
+    }
+  ).costHeads.map((h) => h.name);
+  const CSI_DIVISIONS = [
+    'General Requirements',
+    'Existing Conditions',
+    'Concrete',
+    'Masonry',
+    'Metals',
+    'Wood, Plastics',
+    'Thermal and Moisture',
+    'Openings',
+    'Finishes',
+    'Specialties',
+    'Equipment',
+    'Furnishings',
+    'Special Construction',
+    'Conveying',
+    'Fire Suppression',
+    'Plumbing',
+    'HVAC',
+    'Integrated Automation',
+    'Electrical',
+    'Communications',
+    'Electronic Safety',
+    'Earthwork',
+    'Exterior Improvements',
+    'Utilities',
+  ];
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  it.each([...new Set([...seeded, ...CSI_DIVISIONS])])('no source file names "%s"', (name) => {
+    const pattern = new RegExp(`\\b${escape(name)}\\b`, 'i');
+    const offenders = sources.filter((f) => pattern.test(readFileSync(f, 'utf8')));
+    expect(offenders.map((f) => relative(REPO_ROOT, f))).toEqual([]);
+  });
+});

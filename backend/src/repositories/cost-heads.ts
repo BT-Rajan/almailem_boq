@@ -30,6 +30,7 @@ export type NewCostHead = {
   active?: boolean;
 };
 export type CostHeadPatch = {
+  code?: string;
   name?: string;
   description?: string | null;
   displayOrder?: number;
@@ -49,6 +50,7 @@ const map = (r: Row): CostHeadRecord => ({
 });
 
 const COLUMNS = {
+  code: 'code',
   name: 'name',
   description: 'description',
   displayOrder: 'display_order',
@@ -100,12 +102,33 @@ export function costHeadsRepository(db: Db) {
     async update(id: string, patch: CostHeadPatch): Promise<boolean> {
       const set = buildSet(patch, COLUMNS);
       if (!set) return false;
-      const res = await exec(
+      return guarded('Cost head', async () => {
+        const res = await exec(
+          db,
+          `UPDATE cost_heads SET ${set.sql} WHERE id = ? AND deleted_at IS NULL`,
+          [...set.params, id],
+        );
+        return res.affectedRows > 0;
+      });
+    },
+    /** Display order for a head added at the end of the list. */
+    async nextDisplayOrder(): Promise<number> {
+      const row = await selectOne(
         db,
-        `UPDATE cost_heads SET ${set.sql} WHERE id = ? AND deleted_at IS NULL`,
-        [...set.params, id],
+        'SELECT COALESCE(MAX(display_order), 0) + 1 AS n FROM cost_heads WHERE deleted_at IS NULL',
       );
-      return res.affectedRows > 0;
+      return Number(row?.['n'] ?? 1);
+    },
+    /** Row-lock every live head (active or not) until the transaction ends; returns them in order. */
+    async lockAllLive(): Promise<CostHeadRecord[]> {
+      const rows = await selectRows(
+        db,
+        'SELECT * FROM cost_heads WHERE deleted_at IS NULL ORDER BY display_order, code FOR UPDATE',
+      );
+      return rows.map(map);
+    },
+    async setDisplayOrder(id: string, displayOrder: number): Promise<void> {
+      await exec(db, 'UPDATE cost_heads SET display_order = ? WHERE id = ?', [displayOrder, id]);
     },
     async softDelete(id: string): Promise<boolean> {
       const res = await exec(

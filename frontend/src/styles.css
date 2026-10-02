@@ -59,7 +59,8 @@ h3 {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
   padding: 4px 8px;
   border: 1px solid var(--border);
@@ -228,4 +229,7 @@ button:disabled {
 .slideover-body {
   padding: 12px;
   overflow-y: auto;
+}
+.table tr.inactive td {
+  color: #6b7480;
 }

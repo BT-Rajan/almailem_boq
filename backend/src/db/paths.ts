@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 export const MIGRATIONS_DIR = fileURLToPath(
   new URL('../../../database/migrations', import.meta.url),
 );
+export const COST_HEADS_SEED_FILE = fileURLToPath(
+  new URL('../../../database/seed/cost-heads.json', import.meta.url),
+);
 export const ACCESS_SEED_FILE = fileURLToPath(
   new URL('../../../database/seed/access.json', import.meta.url),
 );

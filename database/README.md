@@ -5,7 +5,8 @@ MariaDB 10.11+ only (InnoDB, utf8mb4). Plain SQL, no ORM.
 ```
 database/
   migrations/   NNNN_name.up.sql + NNNN_name.down.sql   (one concern per migration)
-  seed/         access.json  (roles, permissions, role mapping; no cost heads, no users)
+  seed/         access.json      roles, permissions, role mapping
+                cost-heads.json  the cost-head master list, in display order (no users are ever seeded)
 ```
 
 The runner, seed loader and repositories live in `backend/src/db` and `backend/src/repositories`.
@@ -46,3 +47,13 @@ CI must set `REQUIRE_DB_TESTS=1` so a missing database fails the run instead of 
 - MariaDB DDL is not transactional. Keep migrations small and write every `down` with `IF EXISTS`.
 - `audit_log` rejects UPDATE and DELETE through triggers. In production the application's database user
   should not have `DROP`, `TRUNCATE` or `TRIGGER` privileges, otherwise those protections can be bypassed.
+
+## Cost head seed file
+
+`seed/cost-heads.json`, in display order. It ships empty until the real list is supplied (DECISIONS D18):
+
+```json
+{ "costHeads": [{ "code": "01", "name": "…", "description": "optional" }] }
+```
+
+`pnpm db:seed` adds heads whose code is new and leaves existing ones (and admin edits) alone.

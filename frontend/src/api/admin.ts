@@ -2,9 +2,12 @@ import type {
   AdminUser,
   AdminUserDetail,
   AdminUserPage,
+  CostHead,
+  CreateCostHeadRequest,
   CreateUserRequest,
   ProjectRef,
   RoleWithPermissions,
+  UpdateCostHeadRequest,
 } from '@boq/shared';
 import { api, queryString } from './client';
 
@@ -27,3 +30,11 @@ export const revokeProject = (id: string, projectId: string) =>
   api<ProjectRef[]>('DELETE', `${user(id)}/projects/${encodeURIComponent(projectId)}`);
 export const listRoles = () => api<RoleWithPermissions[]>('GET', '/api/admin/roles');
 export const listProjects = () => api<ProjectRef[]>('GET', '/api/admin/projects');
+
+export const listCostHeads = () => api<CostHead[]>('GET', '/api/admin/cost-heads');
+export const createCostHead = (body: CreateCostHeadRequest) =>
+  api<CostHead>('POST', '/api/admin/cost-heads', body);
+export const updateCostHead = (id: string, body: UpdateCostHeadRequest) =>
+  api<CostHead>('PATCH', `/api/admin/cost-heads/${encodeURIComponent(id)}`, body);
+export const reorderCostHeads = (ids: string[]) =>
+  api<CostHead[]>('PUT', '/api/admin/cost-heads/order', { ids });
