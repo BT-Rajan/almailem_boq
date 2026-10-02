@@ -9,3 +9,6 @@ coverage/
 data/
 test-results/
 playwright-report/
+# installer.sh state (passwords) and generated pm2 file
+.install.env
+ecosystem.config.json

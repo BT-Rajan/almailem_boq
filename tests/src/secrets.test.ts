@@ -27,7 +27,8 @@ const PATTERNS: [string, RegExp][] = [
   ['password literal', /\bpassword\s*[:=]\s*['"](?!change-me)[^'"\s]{6,}['"]/i],
   [
     'database URL with a password',
-    /\b(mysql|mariadb):\/\/[^:\s/]+:(?!change-me@|<password>@)[^@\s]+@/,
+    // A password built from a shell variable ($pass, $(urlenc ...)) is not a literal secret.
+    /\b(mysql|mariadb):\/\/[^:\s/]+:(?!change-me@|<password>@|[^@\s]*\$)[^@\s]+@/,
   ],
 ];
 

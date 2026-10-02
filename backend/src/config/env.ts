@@ -18,10 +18,16 @@ const envSchema = z.object({
   // Login attempts allowed per client IP per 15 minutes (in-memory, per server process).
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(30),
   // Set to true only behind a trusted reverse proxy, so the real client IP is used.
+  // 'loopback' trusts only a proxy on this machine (the installer's set-up): the client address the
+  // proxy reports is used, and a client cannot fake its own. 'true' trusts any proxy: only behind
+  // one that replaces X-Forwarded-For (DEPLOY.md).
   TRUST_PROXY: z
-    .enum(['true', 'false'])
+    .enum(['true', 'false', 'loopback'])
     .default('false')
-    .transform((v) => v === 'true'),
+    .transform((v) => (v === 'loopback' ? ('loopback' as const) : v === 'true')),
+  // Session cookie "Secure" flag. auto = on in production. Set false only when the app is reached
+  // over plain http (browsers drop Secure cookies there); use https in real deployments.
+  COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
   // Expense attachments: a directory the web server never serves. Files are stored under random names.
   ATTACHMENTS_DIR: z.string().min(1).default('data/attachments'),
   ATTACHMENT_MAX_MB: z.coerce.number().int().min(1).max(50).default(10),

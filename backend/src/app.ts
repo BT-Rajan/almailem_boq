@@ -37,7 +37,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
 
   registerErrorHandling(app);
-  registerSecurityHeaders(app, { hsts: env.NODE_ENV === 'production' });
+  registerSecurityHeaders(app, { hsts: authConfig(env).cookieSecure }); // HSTS only when on https
   await app.register(cors, { origin: env.CORS_ORIGINS, credentials: true });
 
   if (deps.pool) {

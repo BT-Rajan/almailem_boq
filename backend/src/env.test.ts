@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { authConfig } from './auth/config';
 import { loadEnv } from './config/env';
 
 describe('loadEnv', () => {
@@ -30,5 +31,26 @@ describe('loadEnv', () => {
     const attempt = () => loadEnv({ DATABASE_URL: 'postgres://u:topsecret@h/boq' });
     expect(attempt).toThrow(/DATABASE_URL/);
     expect(attempt).not.toThrow(/topsecret/);
+  });
+});
+
+describe('deployment switches', () => {
+  it('TRUST_PROXY: false, true, or loopback only', () => {
+    expect(loadEnv({}).TRUST_PROXY).toBe(false);
+    expect(loadEnv({ TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(true);
+    expect(loadEnv({ TRUST_PROXY: 'loopback' }).TRUST_PROXY).toBe('loopback');
+    expect(() => loadEnv({ TRUST_PROXY: '10.0.0.1' })).toThrow(/TRUST_PROXY/);
+  });
+
+  it('COOKIE_SECURE: auto follows NODE_ENV; true/false override it', () => {
+    const secure = (e: Record<string, string>) => authConfig(loadEnv(e)).cookieSecure;
+    expect(secure({ NODE_ENV: 'production' })).toBe(true);
+    expect(secure({ NODE_ENV: 'development' })).toBe(false);
+    expect(secure({ NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toBe(false);
+    expect(secure({ NODE_ENV: 'development', COOKIE_SECURE: 'true' })).toBe(true);
+    expect(authConfig(loadEnv({ NODE_ENV: 'production', COOKIE_SECURE: 'false' })).cookieName).toBe(
+      'boq_session',
+    );
+    expect(authConfig(loadEnv({ NODE_ENV: 'production' })).cookieName).toBe('__Host-boq_session');
   });
 });

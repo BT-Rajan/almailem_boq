@@ -240,3 +240,17 @@ Findings, fixes and accepted risks are in HARDENING.md; deployment in DEPLOY.md;
 
 ## D27. Cost heads are entered in the app, in any number (confirmed)
 Supersedes the "32 heads, to be supplied" parts of D10 and D18. Admins create, edit, reorder and deactivate cost heads in Administration > Cost heads. There is no fixed count: 10, 32 or 50 all work, and nothing in the code assumes a number. The only limit is 500 heads, which the reorder screen and the seed file accept in one go. `database/seed/cost-heads.json` stays optional: it can preload a list, but an empty file is the normal starting point.
+
+## D28. One-command install under pm2
+`installer.sh` sets up a single server and runs the app under pm2, following the jdk_erp installer. DEPLOY.md section 0 has its usage. Decisions worth reviewing:
+- **Two processes:**
+  - `boq-api` binds `127.0.0.1:3100`, so it is reachable only through the web process.
+  - `boq-web` is `vite preview` on port 7180. It serves the built app with the same strict CSP as the nginx example and proxies `/api`. No nginx is needed for a LAN install. nginx (DEPLOY.md sections 6–7) stays the recommended setup with https.
+- **New setting `COOKIE_SECURE`** (`auto`, `true` or `false`). With `auto`, behaviour is unchanged: secure cookies in production. A plain-http install needs `false`, because browsers drop `Secure` cookies on http. HSTS follows the same switch. The installer sets it from the scheme of `PUBLIC_URL` and warns about plain http on anything but localhost.
+- **`TRUST_PROXY` gains `loopback`:** forwarded addresses are trusted only from a proxy on the same machine. This keeps per-client login rate limits correct behind `boq-web`, and nobody else can spoof the address.
+- **Database accounts as in D26:**
+  - `boq_app` has data rights only and is the account in `backend/.env`;
+  - `boq_admin` runs migrations and seeds.
+  Passwords are generated once and kept in `.install.env` (mode 600, git-ignored). A re-run never rotates them.
+- **The first administrator** is created only when the database has no users, through the existing `admin:bootstrap`.
+- **The secrets scan ignores database URLs whose password is a shell variable** (`$pass`, `$(urlenc …)`). A literal password still fails it.
