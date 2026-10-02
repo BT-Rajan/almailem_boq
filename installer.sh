@@ -238,7 +238,8 @@ ROOT_ERR=""
 as_root() { # prints the query's rows (no headers) on success
   local out
   if [ -z "${MYSQL_ROOT_PASSWORD:-}" ] && { [ -n "$SUDO" ] || [ "$(id -u)" = 0 ]; }; then
-    out="$($SUDO "$MYSQL" -N -B -e "$1" 2>&1)" && { printf '%s' "$out"; return 0; }; ROOT_ERR="$out"
+    # sudo -n: never stop to ask for a password (run 'sudo -v' first to use a sudo password).
+    out="$(${SUDO:+$SUDO -n} "$MYSQL" -N -B -e "$1" 2>&1)" && { printf '%s' "$out"; return 0; }; ROOT_ERR="$out"
   fi
   if [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then
     out="$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u root -N -B -e "$1" 2>&1)" && { printf '%s' "$out"; return 0; }; ROOT_ERR="$out"
@@ -254,8 +255,28 @@ check_existing_account() { # check_existing_account USER PASSWORD VAR_NAME
   [ "$n" = 0 ] || can_auth "$1" "$2" \
     || die "Database account '$1' already exists with a different password, and this installer never changes it. Re-run with its password ($3=...), or pick a new account name (${3%_PASS}_USER=...)."
 }
+as_account() { MYSQL_PWD="$2" "$MYSQL" -h "$DB_HOST" -P "$DB_PORT" -u "$1" --connect-timeout=5 -e "$3" 2>&1; }
 if can_login "$DB_USER" "$DB_PASS" && can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS"; then
   ok "Database '$DB_NAME' found and its account(s) work — using them"
+elif ! as_root "SELECT 1" >/dev/null; then
+  # No root access to MariaDB (no sudo, no MYSQL_ROOT_PASSWORD): do what the app account itself
+  # is allowed to do. It must exist already, with its password given (DB_PASS).
+  can_auth "$DB_USER" "$DB_PASS" \
+    || die "No root access to MariaDB (${ROOT_ERR:-not root, no sudo}), and '$DB_USER' cannot sign in with the password given. Give its password (DB_PASS='...' bash installer.sh), or run with sudo, or set MYSQL_ROOT_PASSWORD."
+  if can_login "$DB_USER" "$DB_PASS"; then
+    info "Database '$DB_NAME' found"
+  else
+    OUT="$(as_account "$DB_USER" "$DB_PASS" "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")" \
+      || die "'$DB_USER' may not create database '$DB_NAME' (${OUT##*: }). Ask your database administrator to create it and grant ALL PRIVILEGES on it to '$DB_USER', or run with sudo / MYSQL_ROOT_PASSWORD."
+    can_login "$DB_USER" "$DB_PASS" || die "Created '$DB_NAME', but '$DB_USER' cannot use it"
+    info "Database '$DB_NAME' not found — created it as '$DB_USER'"
+  fi
+  if [ "$SINGLE_ACCOUNT" != 1 ] && ! can_login "$DB_ADMIN_USER" "$DB_ADMIN_PASS"; then
+    # Without root the separate migrations account cannot be made: the app account does both.
+    warn "No root access to create '$DB_ADMIN_USER' — '$DB_USER' runs migrations too (audit log less protected, HARDENING A3)"
+    DB_ADMIN_USER="$DB_USER"; DB_ADMIN_PASS="$DB_PASS"; SINGLE_ACCOUNT=1
+  fi
+  ok "Database '$DB_NAME' ready for '$DB_USER' (no root access needed)"
 else
   # Created only if it is not there yet; an existing database is used as it is.
   FOUND="$(as_root "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$(sql_str "$DB_NAME")'")" \
