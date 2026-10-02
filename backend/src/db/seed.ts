@@ -33,9 +33,12 @@ export async function loadAccessSeed(file: string): Promise<AccessSeed> {
   return seedSchema.parse(JSON.parse(await readFile(file, 'utf8')));
 }
 
+/** Administration, and deciding on over-budget spend (D29), are for the "all" role only. */
+const adminOnly = (code: string) => code.startsWith('admin.') || code === 'approval.decide';
+
 function permissionsFor(grant: AccessSeed['roles'][number]['grant'], all: string[]): string[] {
   if (grant === 'all') return all;
-  if (grant === 'all-except-admin') return all.filter((c) => !c.startsWith('admin.'));
+  if (grant === 'all-except-admin') return all.filter((c) => !adminOnly(c));
   const unknown = grant.filter((c) => !all.includes(c));
   if (unknown.length) throw new Error(`Seed grants unknown permission(s): ${unknown.join(', ')}`);
   return grant;

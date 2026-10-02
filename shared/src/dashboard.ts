@@ -14,7 +14,13 @@ export type DashboardProject = {
 };
 
 export type Dashboard = {
-  summary: { projects: number; metrics: BudgetMetrics; status: BudgetStatus };
+  summary: {
+    projects: number;
+    /** Approval requests waiting for a decision, in the projects this user can see. */
+    pendingApprovals: number;
+    metrics: BudgetMetrics;
+    status: BudgetStatus;
+  };
   projects: DashboardProject[];
 };
 

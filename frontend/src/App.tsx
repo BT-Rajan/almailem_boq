@@ -4,6 +4,7 @@ import { fetchSession, logout } from './api/auth';
 import { GlobalSearch } from './components/GlobalSearch';
 import { LoginPage } from './pages/LoginPage';
 import { ApprovalRulesPage } from './pages/admin/ApprovalRulesPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CostHeadsPage } from './pages/admin/CostHeadsPage';
 import { CostHeadPage } from './pages/expenses/CostHeadPage';
@@ -13,10 +14,11 @@ import { CreateProjectPage } from './pages/projects/CreateProjectPage';
 import { ProjectPage } from './pages/projects/ProjectPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 
-/** Top navigation. Dashboard (home) and Projects first; Administration pages after. */
+/** Top navigation. Dashboard (home), Projects and Approvals first; Administration pages after. */
 const NAV = [
   { href: '#/dashboard', label: 'Dashboard' },
   { href: '#/projects', label: 'Projects' },
+  { href: '#/approvals', label: 'Approvals' },
   { href: '#/admin/users', label: 'Users' },
   { href: '#/admin/roles', label: 'Roles' },
   { href: '#/admin/cost-heads', label: 'Cost heads' },
@@ -49,6 +51,8 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
       return { nav: '#/projects', page: <CreateProjectPage /> };
     case '#/projects':
       return { nav: hash, page: <ProjectsPage /> };
+    case '#/approvals':
+      return { nav: hash, page: <ApprovalsPage /> };
     case '#/admin/users':
       return { nav: hash, page: <UsersPage /> };
     case '#/admin/roles':

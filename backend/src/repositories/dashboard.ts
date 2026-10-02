@@ -2,11 +2,11 @@ import { fils, type Fils } from '@boq/shared';
 import type { Db } from '../db/pool';
 import { selectOne, selectRows, type Row } from '../db/sql';
 import { andConditions, memberScope } from '../query/list';
-import { str } from './shared';
+import { countsTowardActual, str } from './shared';
 
 /**
- * Dashboard aggregation, in SQL. Budget per project = sum of its estimates; actual = sum of its
- * original expenses that are not reversed (the same rules as the BoQ). The summary widget sums the
+ * Dashboard aggregation, in SQL. Budget per project = sum of its estimates; actual = sum of the
+ * expenses that count toward Actual (countsTowardActual, the same rule as the BoQ). The summary widget sums the
  * project table's own query, so the two cannot disagree on what "budget" and "actual" mean.
  */
 
@@ -26,7 +26,7 @@ const PROJECT_FIGURES = `
            SELECT SUM(x.amount_fils)
              FROM expenses x
              JOIN cost_heads h ON h.id = x.cost_head_id AND h.deleted_at IS NULL
-            WHERE x.project_id = p.id AND x.reversal_of IS NULL AND x.reversed_at IS NULL
+            WHERE x.project_id = p.id AND ${countsTowardActual('x')}
          ), 0) AS SIGNED) AS actual
     FROM projects p
    WHERE p.deleted_at IS NULL`;

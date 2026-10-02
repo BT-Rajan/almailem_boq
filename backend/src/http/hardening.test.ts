@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fils } from '@boq/shared';
 import { PDF } from '../attachments/testing';
 import { createRateLimiter } from '../auth/rate-limit';
 import {
@@ -16,7 +17,7 @@ import {
 } from '../auth/testing';
 import { hasTestDb } from '../db/testing';
 import { addErrorReporter } from '../errors/monitoring';
-import { costHeadsRepository } from '../repositories';
+import { costHeadsRepository, estimatesRepository } from '../repositories';
 
 describe.skipIf(!hasTestDb)('hardening (real MariaDB)', () => {
   let fx: Fixture;
@@ -59,6 +60,8 @@ describe.skipIf(!hasTestDb)('hardening (real MariaDB)', () => {
         payload: { code: 'HARD', name: 'h' },
       })
     ).json().data.id;
+    // A budget, so the expense is posted rather than held for approval.
+    await estimatesRepository(fx.db.pool).upsert(projectId, head.id, fils(1_000_000));
     expenseId = (
       await fx.app.inject({
         method: 'POST',

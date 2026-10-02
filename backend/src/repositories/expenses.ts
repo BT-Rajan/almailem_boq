@@ -1,9 +1,18 @@
-import { fils, type AttachmentType, type EXPENSE_SORTS, type Fils } from '@boq/shared';
+import {
+  approvalStatusSchema,
+  expenseStatusSchema,
+  fils,
+  type AttachmentType,
+  type ExpenseApproval,
+  type ExpenseStatus,
+  type EXPENSE_SORTS,
+  type Fils,
+} from '@boq/shared';
 import { runList, type ListInput, type ListSpec } from '../query/list';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
-import { buildSet, str, strOrNull, toDate, toDateOrNull } from './shared';
+import { buildSet, countsTowardActual, str, strOrNull, toDate, toDateOrNull } from './shared';
 
 export type ExpenseRecord = {
   id: string;
@@ -21,6 +30,8 @@ export type ExpenseRecord = {
   createdByName: string;
   reversalOf: string | null;
   reversedAt: Date | null;
+  status: ExpenseStatus;
+  approval: ExpenseApproval | null;
   createdAt: Date;
 };
 export type NewExpense = {
@@ -33,6 +44,8 @@ export type NewExpense = {
   description: string | null;
   createdBy: string;
   reversalOf?: string | null;
+  /** POSTED unless it is held for approval. */
+  status?: ExpenseStatus;
 };
 export type ExpensePatch = Partial<
   Pick<
@@ -70,14 +83,36 @@ const map = (r: Row): ExpenseRecord => ({
   createdByName: str(r, 'created_by_name'),
   reversalOf: strOrNull(r, 'reversal_of'),
   reversedAt: toDateOrNull(r['reversed_at']),
+  status: expenseStatusSchema.parse(r['status']),
+  approval:
+    r['approval_id'] === null
+      ? null
+      : {
+          id: str(r, 'approval_id'),
+          status: approvalStatusSchema.parse(r['approval_status']),
+          reason: str(r, 'approval_reason'),
+          requestedBy: { id: str(r, 'approval_requested_by'), name: str(r, 'approval_requester') },
+          decidedBy:
+            r['approval_decided_by'] === null
+              ? null
+              : { id: str(r, 'approval_decided_by'), name: str(r, 'approval_decider') },
+          decidedAt: toDateOrNull(r['approval_decided_at'])?.toISOString() ?? null,
+          decisionComment: strOrNull(r, 'approval_comment'),
+        },
   createdAt: toDate(r['created_at']),
 });
 
-const EXPENSE_COLUMNS =
-  'SELECT e.*, h.code AS cost_head_code, h.name AS cost_head_name, u.name AS created_by_name';
+const EXPENSE_COLUMNS = `SELECT e.*, h.code AS cost_head_code, h.name AS cost_head_name,
+  u.name AS created_by_name, a.id AS approval_id, a.status AS approval_status,
+  a.reason AS approval_reason, a.requested_by AS approval_requested_by,
+  ar.name AS approval_requester, a.decided_by AS approval_decided_by, ad.name AS approval_decider,
+  a.decided_at AS approval_decided_at, a.decision_comment AS approval_comment`;
 const EXPENSE_FROM = `FROM expenses e
   JOIN cost_heads h ON h.id = e.cost_head_id
-  JOIN users u ON u.id = e.created_by`;
+  JOIN users u ON u.id = e.created_by
+  LEFT JOIN approvals a ON a.expense_id = e.id
+  LEFT JOIN users ar ON ar.id = a.requested_by
+  LEFT JOIN users ad ON ad.id = a.decided_by`;
 const SELECT = `${EXPENSE_COLUMNS} ${EXPENSE_FROM}`;
 
 const EXPENSE_LIST: ListSpec<ExpenseSort, 'costHeadId'> = {
@@ -114,8 +149,8 @@ export function expensesRepository(db: Db) {
         const row = await selectOne(
           db,
           `INSERT INTO expenses
-             (project_id, cost_head_id, vendor, invoice_no, expense_date, amount_fils, description, created_by, reversal_of)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+             (project_id, cost_head_id, vendor, invoice_no, expense_date, amount_fils, description, created_by, reversal_of, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
           [
             input.projectId,
             input.costHeadId,
@@ -126,6 +161,7 @@ export function expensesRepository(db: Db) {
             input.description,
             input.createdBy,
             input.reversalOf ?? null,
+            input.status ?? 'POSTED',
           ],
         );
         return str(row as Row, 'id');
@@ -149,6 +185,9 @@ export function expensesRepository(db: Db) {
       await guarded(DUPLICATE_LABEL, () =>
         exec(db, `UPDATE expenses SET ${set.sql} WHERE id = ?`, [...set.params, id]),
       );
+    },
+    async setStatus(id: string, status: ExpenseStatus): Promise<void> {
+      await exec(db, 'UPDATE expenses SET status = ? WHERE id = ?', [status, id]);
     },
     async markReversed(id: string): Promise<void> {
       await exec(db, 'UPDATE expenses SET reversed_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [id]);
@@ -175,15 +214,14 @@ export function expensesRepository(db: Db) {
       return { rows: rows.map(map), total };
     },
     /**
-     * Actual per cost head: the sum of original expenses that have not been reversed.
-     * (Reversal entries are the record of the correction and are not counted again.)
+     * Actual per cost head: the sum of the expenses that count toward Actual (countsTowardActual).
      */
     async actualsByHead(projectId: string): Promise<Map<string, Fils>> {
       const rows = await selectRows(
         db,
         `SELECT cost_head_id, CAST(SUM(amount_fils) AS SIGNED) AS actual
            FROM expenses
-          WHERE project_id = ? AND reversal_of IS NULL AND reversed_at IS NULL
+          WHERE project_id = ? AND ${countsTowardActual('expenses')}
           GROUP BY cost_head_id`,
         [projectId],
       );

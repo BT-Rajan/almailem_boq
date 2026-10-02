@@ -1,4 +1,5 @@
 export * from './admin';
+export * from './approvals';
 export * from './auth';
 export * from './budget';
 export * from './control';

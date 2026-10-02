@@ -122,6 +122,14 @@ describe.skipIf(!hasTestDb)('load: p95 on 100 projects x 32 heads x 5,000 expens
         fx.app.inject({ method, url, headers: asUser(member, true), payload: body(i) });
     const ids: string[] = [];
     const slow: string[] = [];
+    // Budgets first, large enough that the adds below stay under the approval level and post
+    // straight to Actual (each add still runs the approval check), so they can be reversed.
+    const est = await measure('PUT /api/projects/:id/estimates (1 head)', 100, (i) =>
+      write('PUT', `/api/projects/${p}/estimates`, () => ({
+        estimates: [{ costHeadId: headIds[i % headIds.length], amountFils: 1_000_000_000 + i }],
+      }))(i),
+    );
+    if (est > WRITE_P95_MS) slow.push(`estimates: ${est}`);
     const add = await measure('POST /api/projects/:id/expenses', 100, async (i) => {
       const res = await write('POST', `/api/projects/${p}/expenses`, () => ({
         costHeadId: headIds[i % headIds.length],
@@ -138,12 +146,6 @@ describe.skipIf(!hasTestDb)('load: p95 on 100 projects x 32 heads x 5,000 expens
       write('POST', `/api/projects/${p}/expenses/${ids[i]}/reverse`, () => ({ reason: 'load' }))(i),
     );
     if (rev > WRITE_P95_MS) slow.push(`reverse: ${rev}`);
-    const est = await measure('PUT /api/projects/:id/estimates (1 head)', 100, (i) =>
-      write('PUT', `/api/projects/${p}/estimates`, () => ({
-        estimates: [{ costHeadId: headIds[i % headIds.length], amountFils: 2_000_000 + i }],
-      }))(i),
-    );
-    if (est > WRITE_P95_MS) slow.push(`estimates: ${est}`);
     expect(slow).toEqual([]);
   }, 300_000);
 });

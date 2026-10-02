@@ -1,4 +1,4 @@
-import type { ProjectStatus } from '@boq/shared';
+import type { ApprovalStatus, ExpenseStatus, ProjectStatus } from '@boq/shared';
 
 /** Display text only. Formatting lives at the UI edge; no rules here. */
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -19,3 +19,20 @@ export function todayIso(now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+/** Display text for an expense that does not (yet) count toward Actual. */
+const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
+  POSTED: 'Posted',
+  PENDING_APPROVAL: 'Awaiting approval',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+};
+export const expenseStatusLabel = (s: ExpenseStatus): string => EXPENSE_STATUS_LABELS[s];
+
+const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
+  PENDING: 'Waiting',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+};
+export const approvalStatusLabel = (s: ApprovalStatus): string => APPROVAL_STATUS_LABELS[s];

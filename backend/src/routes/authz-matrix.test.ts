@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fils } from '@boq/shared';
 import { hasTestDb } from '../db/testing';
 import {
   costHeadsRepository,
+  estimatesRepository,
   permissionsRepository,
   projectMembersRepository,
   projectsRepository,
@@ -51,6 +53,8 @@ describe.skipIf(!hasTestDb)('authorization matrix (real MariaDB)', () => {
     });
     await projectMembersRepository(fx.db.pool).add(project.id, owner.id);
     const head = await costHeadsRepository(fx.db.pool).create({ code: 'MX', name: 'Matrix head' });
+    // A budget, so the matrix's expense is posted rather than held for approval.
+    await estimatesRepository(fx.db.pool).upsert(project.id, head.id, fils(1_000_000));
     const ownerSession = await signIn(fx, owner.email);
     const expense = await fx.app.inject({
       method: 'POST',

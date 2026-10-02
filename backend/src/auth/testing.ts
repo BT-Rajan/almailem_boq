@@ -92,3 +92,25 @@ export const asUser = (s: Session, withCsrf = false): Record<string, string> => 
   cookie: s.cookie,
   ...(withCsrf && { [CSRF_HEADER]: s.csrf }),
 });
+
+/** For tests that send spend past the approval level: any reason will do. */
+export const TEST_APPROVAL_REASON = 'Test spend past the approval level';
+
+/**
+ * Tests that need spend at or past the approval level in Actual: approve a held expense as an
+ * administrator (who must not be its requester). Does nothing for an expense that was posted.
+ */
+export async function approveHeld(
+  fx: Fixture,
+  admin: Session,
+  expense: { status: string; approval: { id: string } | null },
+): Promise<void> {
+  if (expense.status !== 'PENDING_APPROVAL' || !expense.approval) return;
+  const res = await fx.app.inject({
+    method: 'POST',
+    url: `/api/approvals/${expense.approval.id}/approve`,
+    headers: asUser(admin, true),
+    payload: {},
+  });
+  if (res.statusCode !== 200) throw new Error(res.body);
+}

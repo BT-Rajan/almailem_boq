@@ -4,10 +4,12 @@ import { calculateBudgetStatus } from '../domain/control';
 import { hasTestDb, seedPortfolio } from '../db/testing';
 import { costHeadsRepository, type CostHeadRecord } from '../repositories';
 import {
+  approveHeld,
   asUser,
   createAuthFixture,
   makeUser,
   signIn,
+  TEST_APPROVAL_REASON,
   type Fixture,
   type Session,
 } from '../auth/testing';
@@ -78,7 +80,9 @@ describe.skipIf(!hasTestDb)('dashboard (real MariaDB)', () => {
         invoiceNo: `I-${++seq}`,
         expenseDate: '2026-05-01',
         amountFils,
+        approvalReason: TEST_APPROVAL_REASON,
       });
+      await approveHeld(fx, admin, res.json().data); // the figures below expect spend in Actual
       ids.push(res.json().data.id);
     }
     return { id, expenseIds: ids };
@@ -173,6 +177,7 @@ describe.skipIf(!hasTestDb)('dashboard (real MariaDB)', () => {
       expect(await dashboard(lonely)).toEqual({
         summary: {
           projects: 0,
+          pendingApprovals: 0,
           metrics: { budget: 0, actual: 0, remaining: 0, utilisationBp: 0 },
           status: 'NORMAL',
         },

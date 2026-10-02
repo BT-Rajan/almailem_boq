@@ -15,6 +15,7 @@ afterEach(() => {
 const dashboard = {
   summary: {
     projects: 2,
+    pendingApprovals: 3,
     metrics: { budget: 3_000_000, actual: 2_150_000, remaining: 850_000, utilisationBp: 7166 },
     status: 'NORMAL',
   },
@@ -44,7 +45,7 @@ describe('Dashboard', () => {
     render(<DashboardPage />);
     const figures = await screen.findByLabelText('Portfolio figures');
     expect(figures.textContent).toBe(
-      'Projects2Budget3,000.000Actual2,150.000Remaining850.000Used71.66%StatusNormal',
+      'Projects2Pending approvals3Budget3,000.000Actual2,150.000Remaining850.000Used71.66%StatusNormal',
     );
     const headers = screen.getAllByRole('columnheader').map((c) => c.textContent);
     expect(headers).toEqual([

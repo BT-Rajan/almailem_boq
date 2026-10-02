@@ -54,9 +54,12 @@ describe.skipIf(!hasTestDb)('access seed (real MariaDB)', () => {
     expect(await permissionsRepository(db.pool).list()).toHaveLength(21);
 
     expect(await codesFor('Admin')).toHaveLength(21);
-    expect(await codesFor('Project Manager')).toHaveLength(14);
+    expect(await codesFor('Project Manager')).toHaveLength(13);
     expect(await codesFor('Accountant')).toEqual(await codesFor('Project Manager'));
     expect((await codesFor('Accountant')).some((c) => c.startsWith('admin.'))).toBe(false);
+    // Deciding on over-budget spend is for administrators only (D29); asking is for everyone.
+    expect(await codesFor('Accountant')).toContain('approval.request');
+    expect(await codesFor('Accountant')).not.toContain('approval.decide');
     expect(await codesFor('Viewer')).toEqual(['expense.view', 'project.view', 'report.view']);
   });
 
