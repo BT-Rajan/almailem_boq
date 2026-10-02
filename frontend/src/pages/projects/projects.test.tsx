@@ -28,7 +28,7 @@ const project = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 const zero = { budget: 0, actual: 0, remaining: 0, utilisationBp: 0 };
-const emptyBoq = { rows: [], total: zero, editable: true };
+const emptyBoq = { rows: [], total: zero, totalStatus: 'NORMAL', editable: true };
 const members = [
   { id: 'u1', name: 'Ada', email: 'ada@x.com', isOwner: true, removable: false },
   { id: 'u2', name: 'Bo', email: 'bo@x.com', isOwner: false, removable: true },

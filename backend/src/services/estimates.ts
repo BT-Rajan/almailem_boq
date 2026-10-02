@@ -2,6 +2,7 @@ import { fils, projectStatusSchema, type ProjectBoq, type SetEstimatesRequest } 
 import { recordAudit, type AuditActor } from '../audit/record-audit';
 import type { Db, DbPool } from '../db/pool';
 import { withTransaction } from '../db/transaction';
+import { calculateBudgetStatus } from '../domain/control';
 import { budgetMetrics, totalMetrics } from '../domain/metrics';
 import { acceptsFinancialChanges } from '../domain/project-status';
 import { AppError } from '../errors/app-error';
@@ -10,6 +11,7 @@ import {
   estimatesRepository,
   expensesRepository,
   projectsRepository,
+  thresholdsRepository,
 } from '../repositories';
 
 /**
@@ -28,10 +30,11 @@ async function requireProject(db: Db, id: string) {
  */
 export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
   const project = await requireProject(db, projectId);
-  const [heads, budgets, actuals] = await Promise.all([
+  const [heads, budgets, actuals, thresholds] = await Promise.all([
     costHeadsRepository(db).list({ includeInactive: true }),
     estimatesRepository(db).listForProject(projectId),
     expensesRepository(db).actualsByHead(projectId),
+    thresholdsRepository(db).get(),
   ]);
   // Active heads, plus any inactive head that still carries a budget or spend, so totals stay honest.
   const shown = heads.filter(
@@ -41,12 +44,18 @@ export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
     head: h,
     figures: { budget: budgets.get(h.id) ?? fils(0), actual: actuals.get(h.id) ?? fils(0) },
   }));
+  const total = totalMetrics(lines.map((l) => l.figures));
   return {
-    rows: lines.map(({ head, figures }) => ({
-      costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
-      metrics: budgetMetrics(figures),
-    })),
-    total: totalMetrics(lines.map((l) => l.figures)),
+    rows: lines.map(({ head, figures }) => {
+      const metrics = budgetMetrics(figures);
+      return {
+        costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+        metrics,
+        status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
+      };
+    }),
+    total,
+    totalStatus: calculateBudgetStatus(total.utilisationBp, thresholds),
     editable: acceptsFinancialChanges(project.status),
   };
 }

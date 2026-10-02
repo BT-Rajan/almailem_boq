@@ -1,5 +1,9 @@
 import { z } from 'zod';
+import type { BudgetStatus } from './control';
 import type { Fils } from './money';
+
+/** The unit of utilisation: basis points in 100% (1% = 100). A unit, not a threshold. */
+export const BP_PER_WHOLE = 10_000;
 
 /**
  * Budget figures as the API sends them. Every number here is computed on the server by
@@ -18,10 +22,12 @@ export type BudgetMetrics = {
 };
 
 export type BoqCostHead = { id: string; code: string; name: string; active: boolean };
-export type BoqRow = { costHead: BoqCostHead; metrics: BudgetMetrics };
+/** Status comes from domain/control, using the thresholds in Admin > Approval Rules. */
+export type BoqRow = { costHead: BoqCostHead; metrics: BudgetMetrics; status: BudgetStatus };
 export type ProjectBoq = {
   rows: BoqRow[];
   total: BudgetMetrics;
+  totalStatus: BudgetStatus;
   /** False once the project is completed or cancelled. */
   editable: boolean;
 };

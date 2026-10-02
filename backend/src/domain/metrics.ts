@@ -1,4 +1,11 @@
-import { sumFils, subFils, type BudgetMetrics, type Fils } from '@boq/shared';
+import {
+  addFils,
+  BP_PER_WHOLE,
+  sumFils,
+  subFils,
+  type BudgetMetrics,
+  type Fils,
+} from '@boq/shared';
 
 /**
  * The ONE place budget maths happens: remaining, utilisation and totals.
@@ -6,7 +13,7 @@ import { sumFils, subFils, type BudgetMetrics, type Fils } from '@boq/shared';
  * The API sends these results; nothing else recomputes them.
  */
 
-const BP_PER_WHOLE = 10_000n; // basis points in 100%
+const WHOLE = BigInt(BP_PER_WHOLE);
 const MAX_BP = BigInt(Number.MAX_SAFE_INTEGER);
 
 /** Floor division for BigInt (BigInt "/" truncates toward zero). */
@@ -21,8 +28,8 @@ function floorDiv(a: bigint, b: bigint): bigint {
  * Budget 0: no spend is 0%; any spend counts as 100% (D3).
  */
 export function utilisationBp(budget: Fils, actual: Fils): number {
-  if (budget === 0) return actual > 0 ? 10_000 : 0;
-  const bp = floorDiv(BigInt(actual) * BP_PER_WHOLE, BigInt(budget));
+  if (budget === 0) return actual > 0 ? BP_PER_WHOLE : 0;
+  const bp = floorDiv(BigInt(actual) * WHOLE, BigInt(budget));
   // A tiny budget with enormous spend can exceed the safe range; it is "over" either way.
   if (bp > MAX_BP) return Number(MAX_BP);
   if (bp < -MAX_BP) return -Number(MAX_BP);
@@ -46,4 +53,13 @@ export function totalMetrics(rows: readonly { budget: Fils; actual: Fils }[]): B
     budget: sumFils(rows.map((r) => r.budget)),
     actual: sumFils(rows.map((r) => r.actual)),
   });
+}
+
+/** The figures a head would have after adding `additional` (negative for a reversal). */
+export function projectedMetrics(input: {
+  budget: Fils;
+  actual: Fils;
+  additional: Fils;
+}): BudgetMetrics {
+  return budgetMetrics({ budget: input.budget, actual: addFils(input.actual, input.additional) });
 }

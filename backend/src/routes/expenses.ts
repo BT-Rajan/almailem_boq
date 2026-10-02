@@ -8,6 +8,7 @@ import {
   listExpensesQuerySchema,
   okResponse,
   projectIdParamsSchema,
+  projectionQuerySchema,
   reverseExpenseRequestSchema,
   updateExpenseRequestSchema,
 } from '@boq/shared';
@@ -84,6 +85,16 @@ export function registerExpenseRoutes(
         .header('cache-control', 'private, no-store')
         .header('content-security-policy', "default-src 'none'; sandbox")
         .send(file.stream);
+    },
+  );
+
+  app.get(
+    '/api/projects/:projectId/cost-heads/:costHeadId/projection',
+    onProject('expense.create'),
+    async (request) => {
+      const { projectId, costHeadId } = costHeadParamsSchema.parse(request.params);
+      const { amountFils } = projectionQuerySchema.parse(request.query);
+      return okResponse(await service.projection(projectId, costHeadId, amountFils));
     },
   );
 

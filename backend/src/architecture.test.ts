@@ -174,3 +174,49 @@ describe('architecture: budget maths lives only in domain/metrics', () => {
       expect(pattern.test(sample), label).toBe(true);
   });
 });
+
+describe('architecture: thresholds are data, compared only in domain/control', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f))
+    .map((f) => relative(REPO_ROOT, f));
+  const text = (f: string) => readFileSync(join(REPO_ROOT, f), 'utf8');
+
+  it('the numbers 80 and 100 (as thresholds) appear only in config (the migration) and tests', () => {
+    // 80%: as a percentage, a ratio or basis points
+    const eighty = /\b80\b|\b0\.8\b|\b8_?000\b/;
+    expect(sources.filter((f) => eighty.test(text(f)))).toEqual([]);
+    // 100% in basis points: only the unit definition, plus an unrelated rate-limit cap
+    const hundredBp = /\b10_?000n?\b/;
+    expect(sources.filter((f) => hundredBp.test(text(f)))).toEqual([
+      'backend/src/config/env.ts', // LOGIN_RATE_LIMIT maximum, not a budget threshold
+      'shared/src/budget.ts', // BP_PER_WHOLE: the unit of utilisation
+    ]);
+    const migration = readFileSync(
+      join(REPO_ROOT, 'database/migrations/0010_budget_thresholds.up.sql'),
+      'utf8',
+    );
+    expect(migration).toMatch(/VALUES \(1, 8000, 10000\)/);
+  });
+
+  it('only domain/control compares utilisation with thresholds', () => {
+    const comparison =
+      /(warningBp|approvalBp|utilisationBp)\s*[<>]=?|[<>]=?\s*[\w.]*(warningBp|approvalBp|utilisationBp)/;
+    const allowed = [
+      'backend/src/domain/control.ts',
+      'shared/src/control.ts', // the settings schema checks warning < approval (config consistency)
+    ];
+    const offenders = sources.filter((f) => !allowed.includes(f) && comparison.test(text(f)));
+    expect(offenders).toEqual([]);
+    expect(text('shared/src/control.ts')).not.toMatch(/utilisationBp\s*[<>]/);
+  });
+
+  it('statuses are decided only in domain/control (others only pass them on or display them)', () => {
+    const decides = /return\s+['"](NORMAL|WARNING|APPROVAL_REQUIRED)['"]/;
+    const offenders = sources.filter(
+      (f) => f !== 'backend/src/domain/control.ts' && decides.test(text(f)),
+    );
+    expect(offenders).toEqual([]);
+  });
+});

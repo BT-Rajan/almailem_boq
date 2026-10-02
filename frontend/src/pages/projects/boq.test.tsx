@@ -24,10 +24,12 @@ const row = (
 ) => ({
   costHead: { id, code, name: `Head ${code}`, active },
   metrics: { budget, actual, remaining, utilisationBp },
+  status: utilisationBp >= 10_000 ? 'APPROVAL_REQUIRED' : 'NORMAL', // as a server would send it
 });
 const boq = {
   rows: [row('h1', 'H1', 1_250_500, 0, 1_250_500, 0), row('h2', 'H2', 1_000, 1_500, -500, 15_000)],
   total: { budget: 1_251_500, actual: 1_500, remaining: 1_250_000, utilisationBp: 11 },
+  totalStatus: 'NORMAL',
   editable: true,
 };
 const project = {
@@ -112,7 +114,16 @@ describe('Project BoQ tab', () => {
     const cells = within(h2)
       .getAllByRole('cell')
       .map((c) => c.textContent);
-    expect(cells).toEqual(['H2', 'Head H2', '1.000', '1.500', '-0.500', '150.00%', '', 'Edit']);
+    expect(cells).toEqual([
+      'H2',
+      'Head H2',
+      '1.000',
+      '1.500',
+      '-0.500',
+      '150.00%',
+      'Approval',
+      'Edit',
+    ]);
     const headers = screen.getAllByRole('columnheader').map((c) => c.textContent);
     expect(headers.slice(0, 8)).toEqual([
       'Code',

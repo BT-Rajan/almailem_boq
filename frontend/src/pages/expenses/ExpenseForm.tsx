@@ -1,11 +1,19 @@
 import { useCallback, useState, type FormEvent } from 'react';
-import { ATTACHMENT_TYPES, formatFils, type Expense } from '@boq/shared';
+import {
+  ATTACHMENT_TYPES,
+  formatFils,
+  formatUtilisation,
+  type Expense,
+  type Fils,
+} from '@boq/shared';
 import { getBoq } from '../../api/estimates';
-import { createExpense, updateExpense, uploadAttachment } from '../../api/expenses';
+import { createExpense, getProjection, updateExpense, uploadAttachment } from '../../api/expenses';
+import { useDebounced } from '../../api/use-debounced';
 import { attempt, useLoad } from '../../api/use-load';
 import { todayIso } from '../../components/format';
 import { parseKwdInput } from '../../components/kwd';
 import { ErrorText } from '../../components/SlideOver';
+import { StatusDot } from '../../components/StatusDot';
 
 /**
  * The short Add Expense form, also used to correct one. The bill (PDF, JPG or PNG) is optional.
@@ -104,6 +112,7 @@ export function ExpenseForm(props: {
           required
         />
       </label>
+      {!e && <Preview projectId={projectId} costHeadId={v.costHeadId} amountFils={amountFils} />}
       <label>
         Description
         <textarea value={v.description} onChange={set('description')} rows={2} maxLength={2000} />
@@ -163,5 +172,33 @@ export function ReverseForm(props: {
         Reverse expense
       </button>
     </form>
+  );
+}
+
+/** What this expense would do to the head, before it is saved. All figures are the server's. */
+function Preview(props: { projectId: string; costHeadId: string; amountFils: Fils | null }) {
+  const { projectId } = props;
+  const costHeadId = useDebounced(props.costHeadId);
+  const amountFils = useDebounced(props.amountFils);
+  const ready = costHeadId !== '' && amountFils !== null && amountFils > 0;
+  const projection = useLoad(
+    useCallback(
+      () => (ready ? getProjection(projectId, costHeadId, amountFils) : Promise.resolve(null)),
+      [ready, projectId, costHeadId, amountFils],
+    ),
+  );
+  const p = ready ? projection.data?.projected : undefined;
+  if (!p) return null;
+  return (
+    <div
+      className={`preview preview-${p.status.toLowerCase()}`}
+      role="status"
+      aria-label="After this expense"
+    >
+      <span className="muted">After this expense:</span> Actual {formatFils(p.metrics.actual)} ·
+      Remaining {formatFils(p.metrics.remaining)} · Used{' '}
+      {formatUtilisation(p.metrics.utilisationBp)} <StatusDot status={p.status} />
+      {p.status === 'APPROVAL_REQUIRED' && <div>This takes the head to its approval level.</div>}
+    </div>
   );
 }

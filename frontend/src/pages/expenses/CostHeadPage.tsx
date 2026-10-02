@@ -3,6 +3,7 @@ import { formatFils, formatUtilisation, type Expense } from '@boq/shared';
 import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
 import { useLoad } from '../../api/use-load';
 import { formatDate } from '../../components/format';
+import { StatusDot } from '../../components/StatusDot';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { ExpenseForm, ReverseForm } from './ExpenseForm';
 
@@ -66,6 +67,12 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         <div>
           <dt>Used</dt>
           <dd>{formatUtilisation(m.utilisationBp)}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <StatusDot status={d.status} />
+          </dd>
         </div>
       </dl>
 

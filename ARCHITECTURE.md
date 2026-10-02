@@ -15,7 +15,7 @@ almailem_boq/
       domain/
         project-status.ts  # allowed project status transitions - pure
         metrics.ts         # budgetMetrics({budget, actual}), totalMetrics - pure, no I/O, no thresholds
-        control/           # calculateBudgetStatus, projectedStatus - pure, owns thresholds
+        control.ts         # calculateBudgetStatus, projectedStatus - pure, the only threshold comparisons
         kpi/               # Chunk 14, built on metrics + control
       db/                  # pool, migrator, seed loader, CLI, SQL helpers (DB tooling)
       repositories/        # the ONLY place SQL lives (with db/); one thin repository per table

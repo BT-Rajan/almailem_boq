@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
 import { LoginPage } from './pages/LoginPage';
+import { ApprovalRulesPage } from './pages/admin/ApprovalRulesPage';
 import { CostHeadsPage } from './pages/admin/CostHeadsPage';
 import { CostHeadPage } from './pages/expenses/CostHeadPage';
 import { RolesPage } from './pages/admin/RolesPage';
@@ -16,6 +17,7 @@ const NAV = [
   { href: '#/admin/users', label: 'Users' },
   { href: '#/admin/roles', label: 'Roles' },
   { href: '#/admin/cost-heads', label: 'Cost heads' },
+  { href: '#/admin/approval-rules', label: 'Approval rules' },
 ] as const;
 
 /** Map a location hash to the page to show and the nav entry to highlight. */
@@ -48,6 +50,8 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
       return { nav: hash, page: <RolesPage /> };
     case '#/admin/cost-heads':
       return { nav: hash, page: <CostHeadsPage /> };
+    case '#/admin/approval-rules':
+      return { nav: hash, page: <ApprovalRulesPage /> };
     default:
       return { nav: '#/projects', page: <ProjectsPage /> };
   }

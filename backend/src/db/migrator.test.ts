@@ -17,9 +17,11 @@ const ALL = [
   '0007_sessions',
   '0008_project_estimates',
   '0009_expenses',
+  '0010_budget_thresholds',
 ];
 const APP_TABLES = [
   'audit_log',
+  'budget_thresholds',
   'cost_heads',
   'expenses',
   'permissions',
@@ -79,10 +81,12 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
   it('rolls back one step at a time, newest first', async () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
-    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0009_expenses']);
+    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual([
+      '0010_budget_thresholds',
+    ]);
     const t = await tables(db);
-    expect(t).not.toContain('expenses');
-    expect(t).toContain('project_estimates');
+    expect(t).not.toContain('budget_thresholds');
+    expect(t).toContain('expenses');
   });
 
   it('refuses to run when an applied migration was edited', async () => {

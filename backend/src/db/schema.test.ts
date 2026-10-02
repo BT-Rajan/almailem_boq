@@ -16,6 +16,7 @@ const ALL_TABLES = [
   'audit_log',
   'project_estimates',
   'expenses',
+  'budget_thresholds',
 ];
 
 describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
@@ -71,6 +72,7 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
         'cost_heads',
         'project_estimates',
         'expenses',
+        'budget_thresholds',
       ];
       for (const t of ALL_TABLES) {
         const cols = await columnsOf(t);
@@ -114,8 +116,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
          WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL`,
       );
       // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1,
-      // project_estimates 2, expenses 4
-      expect(fks).toHaveLength(15);
+      // project_estimates 2, expenses 4, budget_thresholds 1
+      expect(fks).toHaveLength(16);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics
@@ -357,6 +359,29 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       const o = await add('Delta', 'D-1', 10);
       await add('Delta', 'D-1', -10, o);
       await expect(q('DELETE FROM expenses WHERE id = ?', [o])).rejects.toThrow(/foreign key/i);
+    });
+  });
+
+  describe('budget_thresholds', () => {
+    it('ships with exactly one row holding the defaults', async () => {
+      const rows = await q('SELECT id, warning_bp, approval_bp FROM budget_thresholds');
+      expect(rows.map((r) => [r['id'], r['warning_bp'], r['approval_bp']])).toEqual([
+        [1, 8000, 10000],
+      ]);
+    });
+    it('refuses a second row and thresholds out of order or above 100%', async () => {
+      await expect(
+        q('INSERT INTO budget_thresholds (id, warning_bp, approval_bp) VALUES (2, 1, 2)'),
+      ).rejects.toThrow(/ck_budget_thresholds_single_row/);
+      for (const [w, a] of [
+        [9000, 9000],
+        [9500, 9000],
+        [0, 9000],
+        [8000, 10001],
+      ])
+        await expect(
+          q('UPDATE budget_thresholds SET warning_bp = ?, approval_bp = ? WHERE id = 1', [w, a]),
+        ).rejects.toThrow(/ck_budget_thresholds_order/);
     });
   });
 

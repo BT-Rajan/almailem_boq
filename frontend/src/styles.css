@@ -346,3 +346,40 @@ input.invalid {
 .boq-actions {
   margin-bottom: 6px;
 }
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-normal .dot {
+  background: var(--status-normal);
+}
+.status-warning .dot {
+  background: var(--status-warning);
+}
+.status-approval_required .dot {
+  background: var(--status-approval);
+}
+.preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.preview-warning {
+  border-color: var(--status-warning);
+}
+.preview-approval_required {
+  border-color: var(--status-approval);
+}
+label.inline {
+  display: inline;
+}

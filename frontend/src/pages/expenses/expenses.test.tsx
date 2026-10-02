@@ -16,8 +16,11 @@ const P = '33333333-3333-4333-8333-333333333333';
 const H = '44444444-4444-4444-8444-444444444444';
 const metrics = { budget: 1_000_000, actual: 800_000, remaining: 200_000, utilisationBp: 8000 };
 const boq = {
-  rows: [{ costHead: { id: H, code: 'H1', name: 'Head one', active: true }, metrics }],
+  rows: [
+    { costHead: { id: H, code: 'H1', name: 'Head one', active: true }, metrics, status: 'WARNING' },
+  ],
   total: metrics,
+  totalStatus: 'WARNING',
   editable: true,
 };
 const base = {
@@ -56,6 +59,7 @@ const reversal = {
 const detail = {
   costHead: { id: H, code: 'H1', name: 'Head one', active: true },
   metrics,
+  status: 'WARNING',
   expenses: { items: [reversal, reversed, live], total: 3, page: 1, pageSize: 50 },
   editable: true,
 };
@@ -135,7 +139,9 @@ describe('Cost-head detail', () => {
     mockApi({ [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({ data: detail }) });
     render(<CostHeadPage projectId={P} costHeadId={H} />);
     const figures = await screen.findByLabelText('Figures');
-    expect(figures.textContent).toBe('Budget1,000.000Actual800.000Remaining200.000Used80.00%');
+    expect(figures.textContent).toBe(
+      'Budget1,000.000Actual800.000Remaining200.000Used80.00%StatusWarning',
+    );
 
     const rowOf = (inv: string, amount: string) =>
       screen
@@ -165,5 +171,46 @@ describe('Cost-head detail', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ reason: 'Entered twice' }),
     );
+  });
+});
+
+describe('Add Expense preview', () => {
+  it('shows what the expense would do, with the status dot, before saving', async () => {
+    const calls = mockApi({
+      [`GET /api/projects/${P}/boq`]: () => ({ data: boq }),
+      [`GET /api/projects/${P}/cost-heads/${H}/projection`]: () => ({
+        data: {
+          current: { metrics, status: 'WARNING' },
+          projected: {
+            metrics: {
+              budget: 1_000_000,
+              actual: 1_050_000,
+              remaining: -50_000,
+              utilisationBp: 10_500,
+            },
+            status: 'APPROVAL_REQUIRED',
+          },
+        },
+      }),
+    });
+    render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
+    await screen.findByRole('option', { name: 'H1 · Head one' });
+    fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '250' } });
+    const preview = await screen.findByRole('status', { name: 'After this expense' });
+    expect(preview.textContent).toContain('Actual 1,050.000');
+    expect(preview.textContent).toContain('Remaining -50.000');
+    expect(preview.textContent).toContain('Used 105.00%');
+    expect(preview.textContent).toContain('Approval');
+    expect(preview.textContent).toContain('This takes the head to its approval level.');
+    expect(calls.find((c) => c.url.includes('/projection'))?.url).toContain('amountFils=250000');
+  });
+
+  it('asks nothing until there is a head and a valid amount; never on edit', async () => {
+    const calls = mockApi({ [`GET /api/projects/${P}/boq`]: () => ({ data: boq }) });
+    render(<ExpenseForm projectId={P} onSaved={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '250' } });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(calls.some((c) => c.url.includes('/projection'))).toBe(false);
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

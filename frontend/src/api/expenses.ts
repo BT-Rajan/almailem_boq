@@ -1,5 +1,6 @@
 import {
   ATTACHMENT_NAME_HEADER,
+  type BudgetProjection,
   type CostHeadDetail,
   type CreateExpenseRequest,
   type Expense,
@@ -31,3 +32,9 @@ export const uploadAttachment = (projectId: string, id: string, file: File) =>
   apiUpload<Expense>(`${one(projectId, id)}/attachment`, file, ATTACHMENT_NAME_HEADER);
 /** A plain link: the browser downloads it with the session cookie; the server checks access. */
 export const attachmentUrl = (projectId: string, id: string) => `${one(projectId, id)}/attachment`;
+
+export const getProjection = (projectId: string, costHeadId: string, amountFils: number) =>
+  api<BudgetProjection>(
+    'GET',
+    `${base(projectId)}/cost-heads/${encodeURIComponent(costHeadId)}/projection${queryString({ amountFils })}`,
+  );

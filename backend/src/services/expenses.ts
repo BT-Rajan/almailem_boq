@@ -3,6 +3,7 @@ import {
   fils,
   projectStatusSchema,
   type AttachmentType,
+  type BudgetProjection,
   type CostHeadDetail,
   type CreateExpenseInput,
   type Expense,
@@ -15,6 +16,7 @@ import { cleanFileName, sniffType } from '../attachments/sniff';
 import type { AttachmentStorage } from '../attachments/storage';
 import type { Db, DbPool } from '../db/pool';
 import { withTransaction } from '../db/transaction';
+import { calculateBudgetStatus, projectedStatus } from '../domain/control';
 import { budgetMetrics } from '../domain/metrics';
 import { acceptsFinancialChanges } from '../domain/project-status';
 import { AppError } from '../errors/app-error';
@@ -22,6 +24,7 @@ import {
   costHeadsRepository,
   expensesRepository,
   projectsRepository,
+  thresholdsRepository,
   type ExpenseRecord,
 } from '../repositories';
 import { loadBoq } from './estimates';
@@ -89,6 +92,22 @@ async function lockExpense(tx: Db, projectId: string, id: string): Promise<Expen
   return e;
 }
 
+/**
+ * One head's row from the project figures, so it always matches the BoQ. A head the BoQ does not
+ * show (inactive, no budget, no spend) has zero figures.
+ */
+async function headFigures(db: Db, projectId: string, costHeadId: string) {
+  const boq = await loadBoq(db, projectId);
+  const row = boq.rows.find((r) => r.costHead.id === costHeadId);
+  if (row) return { boq, row };
+  const metrics = budgetMetrics({ budget: fils(0), actual: fils(0) });
+  const thresholds = await thresholdsRepository(db).get();
+  return {
+    boq,
+    row: { metrics, status: calculateBudgetStatus(metrics.utilisationBp, thresholds) },
+  };
+}
+
 /** Today in UTC as YYYY-MM-DD: the date of a reversal entry. */
 const todayUtc = () => new Date().toISOString().slice(0, 10);
 
@@ -120,14 +139,37 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
     ): Promise<CostHeadDetail> {
       const head = await costHeadsRepository(pool).findById(costHeadId);
       if (!head) throw AppError.notFound('Cost head not found');
-      const boq = await loadBoq(pool, projectId);
-      const row = boq.rows.find((r) => r.costHead.id === costHeadId);
+      const { boq, row } = await headFigures(pool, projectId, costHeadId);
       return {
         costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
-        // A head the BoQ does not show has neither budget nor spend.
-        metrics: row?.metrics ?? budgetMetrics({ budget: fils(0), actual: fils(0) }),
+        metrics: row.metrics,
+        status: row.status,
         expenses: await page(projectId, { ...query, costHeadId }),
         editable: boq.editable,
+      };
+    },
+
+    /** What adding `amountFils` to this head would do, before it is saved (Add Expense preview). */
+    async projection(
+      projectId: string,
+      costHeadId: string,
+      amountFils: number,
+    ): Promise<BudgetProjection> {
+      if (!(await costHeadsRepository(pool).findById(costHeadId))) {
+        throw AppError.notFound('Cost head not found');
+      }
+      const { row } = await headFigures(pool, projectId, costHeadId);
+      const thresholds = await thresholdsRepository(pool).get();
+      return {
+        current: { metrics: row.metrics, status: row.status },
+        projected: projectedStatus(
+          {
+            budget: row.metrics.budget,
+            currentActual: row.metrics.actual,
+            newAmount: fils(amountFils),
+          },
+          thresholds,
+        ),
       };
     },
 

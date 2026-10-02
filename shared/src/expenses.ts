@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { BudgetMetrics, BoqCostHead } from './budget';
+import type { BudgetStatus } from './control';
 import type { Fils } from './money';
 import { isoDateSchema } from './projects';
 
@@ -89,6 +90,7 @@ export type ExpensePage = { items: Expense[]; total: number; page: number; pageS
 export type CostHeadDetail = {
   costHead: BoqCostHead;
   metrics: BudgetMetrics;
+  status: BudgetStatus;
   expenses: ExpensePage;
   /** False once the project is completed or cancelled. */
   editable: boolean;

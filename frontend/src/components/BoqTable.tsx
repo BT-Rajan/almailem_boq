@@ -1,9 +1,9 @@
 import { formatFils, formatUtilisation, type BoqRow, type ProjectBoq } from '@boq/shared';
+import { StatusDot } from './StatusDot';
 
 /**
  * Budget > Actual > Remaining > % Used > Status > Action, per cost head, with the project total.
- * Every figure is the server's (domain/metrics); this only formats.
- * Status stays empty until the control engine exists (Chunk 09).
+ * Every figure and status is the server's (domain/metrics, domain/control); this only formats.
  */
 export function BoqTable(props: {
   boq: ProjectBoq;
@@ -45,7 +45,9 @@ export function BoqTable(props: {
               {formatFils(r.metrics.remaining)}
             </td>
             <td className="num">{formatUtilisation(r.metrics.utilisationBp)}</td>
-            <td />
+            <td>
+              <StatusDot status={r.status} />
+            </td>
             <td className="num">
               {onEdit && boq.editable && (
                 <button
@@ -74,7 +76,9 @@ export function BoqTable(props: {
           <th className="num">{formatFils(t.actual)}</th>
           <th className={t.remaining < 0 ? 'num negative' : 'num'}>{formatFils(t.remaining)}</th>
           <th className="num">{formatUtilisation(t.utilisationBp)}</th>
-          <th />
+          <th>
+            <StatusDot status={boq.totalStatus} />
+          </th>
           <th />
         </tr>
       </tfoot>
