@@ -96,7 +96,19 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
 **Audit**: `recordAudit(db, event, actor, entity, before, after)` is the only writer. It takes `db` so a service can pass its transaction and commit the audit row with the change. Event names must look like `entity.action`. Values under keys that look sensitive (`password`, `token`, `secret`, `hash`, `cookie`, `authorization`) are redacted before storage. Login events recorded: `auth.login`, `auth.login_failed` and `auth.account_locked` (known accounts only; attempts on unknown emails are not stored, so attacker-chosen text never reaches the table), `auth.logout`.
 
 **Known gaps (by design, for later chunks)**
-- **There is no way to create the first user yet.** User management is Chunk 04; until then an admin must be inserted by hand or by script.
-- No password rules (length, breach check) yet: they belong with user creation and password change in Chunk 04, along with revoking sessions on password change (`sessionsRepository.deleteAllForUser` is ready).
+- ~~There is no way to create the first user yet.~~ Closed in Chunk 04 (`admin:bootstrap`, D16).
+- ~~No password rules yet.~~ Length rule added in Chunk 04 (D16). Breach check and password change/reset are still not built.
 - `sessions` has `created_at` and `last_seen_at` but no `updated_at`, consistent with D14.
 - Expired sessions are purged on each login rather than by a scheduled job.
+
+## D16. User administration choices (Chunk 04, review these)
+- **"Admin" means a permission, not a role name.** The last-admin rule protects `admin.users.manage`: at least one enabled, non-deleted user must hold it through some role. Removing a role or disabling a user that would leave nobody holding it is refused with `409 LAST_ADMIN`. Both changes run in a transaction that first row-locks that permission, so two admins removing each other at the same moment cannot both succeed (tested, and the test fails if the lock is removed).
+- **One exception to "roles are only read in repositories":** `services/user-admin.ts` lists and assigns roles by id so the admin screens can show them. A test pins it as the only exception and checks it never compares a role name.
+- **Passwords: at least 12 characters, at most 1024, no composition rules** (NIST 800-63B). The admin sets an initial password when creating a user; there is no email, invite or self-service reset yet.
+- **Disabling a user** deletes their sessions at once (they were already rejected on the next request). Enabling does not clear a login lockout; the lock still runs out on its own.
+- **Role and project grants are idempotent** (`PUT` to add, `DELETE` to remove). A no-op writes no audit row.
+- **Audit events:** `user.created` (after: email, name, role names), `user.disabled` / `user.enabled` (before/after `disabled`), `user.role_assigned` / `user.role_removed` (before/after role names), `user.project_granted` / `user.project_revoked` (project id and code). Each commits in the same transaction as its change.
+- **First administrator:** `printf '%s' "$PASSWORD" | pnpm --filter @boq/backend admin:bootstrap <email> "<name>"` creates a user holding every role that grants `admin.users.manage`. The password comes from stdin, never argv. It is refused once any enabled user can manage users.
+- **Project picker:** `GET /api/admin/projects` returns live projects (id, code, name) for the grant dropdown only. The real project list, with access filtering, search and pagination, is Chunk 06.
+- **User list search** is a simple `LIKE` on name and email with `%` and `_` escaped, offset pagination, page size capped at 100. Chunk 13 replaces it with the shared query builder.
+- **Frontend:** a minimal sign-in screen was needed to reach the admin pages at all. Navigation shows Users and Roles to every signed-in user; the server decides, and a user without the permission sees the 403 message. Hiding links per permission would need a permission check in the UI, which the architecture test forbids outside `auth/guards.ts`; revisit if wanted. No router or data-fetching library was added: a hash route and a small `useLoad` hook are enough for two pages. TanStack Query and Table (D1) can come in when a page needs them.

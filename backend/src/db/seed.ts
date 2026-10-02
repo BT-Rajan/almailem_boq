@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { Pool } from 'mysql2/promise';
 import { z } from 'zod';
 import { permissionsRepository, rolePermissionsRepository, rolesRepository } from '../repositories';
+import { withTransaction } from './transaction';
 
 /**
  * Seeds system roles, permissions and the role-permission mapping from database/seed/access.json.
@@ -38,9 +39,7 @@ export async function seedAccess(
   pool: Pool,
   seed: AccessSeed,
 ): Promise<{ roles: number; permissions: number }> {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
+  return withTransaction(pool, async (conn) => {
     const permissions = permissionsRepository(conn);
     const roles = rolesRepository(conn);
     const grants = rolePermissionsRepository(conn);
@@ -61,12 +60,6 @@ export async function seedAccess(
         await grants.grant(role.id, idByCode.get(code) as string);
       }
     }
-    await conn.commit();
     return { roles: seed.roles.length, permissions: seed.permissions.length };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
+  });
 }

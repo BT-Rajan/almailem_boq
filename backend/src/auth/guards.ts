@@ -30,6 +30,11 @@ function requireAuth(request: FastifyRequest): AuthContext {
   return request.auth;
 }
 
+/** The signed-in user as an audit actor. For use in routes behind authenticate. */
+export const currentActor = (request: FastifyRequest): { userId: string } => ({
+  userId: requireAuth(request).user.id,
+});
+
 export function createGuards(deps: { pool: DbPool; service: AuthService; config: AuthConfig }) {
   const { pool, service, config } = deps;
 

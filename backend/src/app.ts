@@ -7,6 +7,7 @@ import type { RateLimiter } from './auth/rate-limit';
 import type { Env } from './config/env';
 import { registerErrorHandling } from './errors/error-handler';
 import { loggerOptions } from './logging/logger';
+import { registerAdminUserRoutes } from './routes/admin-users';
 import { registerHealthRoute } from './routes/health';
 
 export type AppDeps = {
@@ -34,6 +35,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       config: authConfig(env),
       ...(deps.limiter && { limiter: deps.limiter }),
     });
+    registerAdminUserRoutes(app, { pool: deps.pool });
   }
   registerHealthRoute(app);
 

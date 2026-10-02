@@ -17,7 +17,8 @@ almailem_boq/
         kpi/               # Chunk 14, built on metrics + control
       db/                  # pool, migrator, seed loader, CLI, SQL helpers (DB tooling)
       repositories/        # the ONLY place SQL lives (with db/); one thin repository per table
-      services/            # orchestration, transactions
+      services/            # orchestration, transactions (user-admin: users, roles, project access)
+      cli/                 # operator tools (bootstrap-admin)
       routes/              # thin HTTP layer: validate > authorize > service
       query/               # shared search/filter/sort/pagination builder (Chunk 13)
       import/              # parser > validator > mapper > committer (isolated, Chunk 15)

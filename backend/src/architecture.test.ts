@@ -51,15 +51,24 @@ describe('architecture: access control goes through permissions only', () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
+  // User administration lists and assigns roles (by id) and is the one exception.
+  const ROLE_ADMIN_SERVICE = 'services/user-admin.ts';
+
   it('role names are only readable inside the repositories, so no route can branch on them', () => {
     const offenders = appFiles
       .filter(
         (f) => !relative(SRC, f).startsWith('repositories/') && !relative(SRC, f).startsWith('db/'),
       )
+      .filter((f) => relative(SRC, f) !== ROLE_ADMIN_SERVICE)
       .filter((f) =>
         /listRoleNames|userRolesRepository|rolesRepository/.test(readFileSync(f, 'utf8')),
       );
     expect(offenders.map(rel)).toEqual([]);
+  });
+
+  it('the user-admin service never compares a role name', () => {
+    const text = readFileSync(join(SRC, ROLE_ADMIN_SERVICE), 'utf8');
+    expect(text).not.toMatch(/\.name\s*[!=]==|[!=]==\s*\w+\.name\b|roleName|findByName/);
   });
 
   it('only auth/guards.ts decides who may do what (no inline permission checks elsewhere)', () => {
@@ -72,6 +81,6 @@ describe('architecture: access control goes through permissions only', () => {
   it('routes never read request.auth directly to make decisions; they use guards', () => {
     const routeFiles = appFiles.filter((f) => relative(SRC, f).startsWith('routes/'));
     for (const f of routeFiles)
-      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\.permissions|\.roles/);
+      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\.auth\b|\.permissions\b/);
   });
 });

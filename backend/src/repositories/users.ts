@@ -1,8 +1,9 @@
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
-import { exec, selectOne, type Row } from '../db/sql';
+import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
+  containsPattern,
   liveClause,
   str,
   toBool,
@@ -63,6 +64,40 @@ export function usersRepository(db: Db) {
     async findById(id: string, opts?: FindOptions): Promise<UserRecord | null> {
       const row = await selectOne(db, `${SELECT_USER} WHERE id = ?${liveClause(opts)}`, [id]);
       return row ? map(row) : null;
+    },
+    /** Live users (disabled included), newest first, optionally filtered by name or email. */
+    async search(opts: {
+      search?: string | undefined;
+      limit: number;
+      offset: number;
+    }): Promise<{ rows: UserRecord[]; total: number }> {
+      const filter = opts.search ? ' AND (name LIKE ? OR email LIKE ?)' : '';
+      const like = opts.search ? [containsPattern(opts.search), containsPattern(opts.search)] : [];
+      const count = await selectOne(
+        db,
+        `SELECT COUNT(*) AS n FROM users WHERE deleted_at IS NULL${filter}`,
+        like,
+      );
+      const rows = await selectRows(
+        db,
+        `${SELECT_USER} WHERE deleted_at IS NULL${filter} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
+        [...like, opts.limit, opts.offset],
+      );
+      return { rows: rows.map(map), total: Number(count?.['n'] ?? 0) };
+    },
+    /** How many enabled, live users hold `permissionCode` through any role. */
+    async countEnabledHolding(permissionCode: string): Promise<number> {
+      const row = await selectOne(
+        db,
+        `SELECT COUNT(DISTINCT u.id) AS n
+           FROM users u
+           JOIN user_roles ur ON ur.user_id = u.id
+           JOIN role_permissions rp ON rp.role_id = ur.role_id
+           JOIN permissions p ON p.id = rp.permission_id
+          WHERE p.code = ? AND u.disabled = 0 AND u.deleted_at IS NULL`,
+        [permissionCode],
+      );
+      return Number(row?.['n'] ?? 0);
     },
     async findByEmail(email: string, opts?: FindOptions): Promise<UserRecord | null> {
       const row = await selectOne(db, `${SELECT_USER} WHERE email = ?${liveClause(opts)}`, [email]);

@@ -18,6 +18,7 @@ The runner, seed loader and repositories live in `backend/src/db` and `backend/s
 | `pnpm db:status`           | Show applied / pending                                    |
 | `pnpm db:rollback`         | Roll back the newest migration (`pnpm db:rollback 2`, `pnpm db:rollback all`) |
 | `pnpm db:seed`             | Load roles/permissions. Idempotent and additive           |
+| `printf '%s' "$PW" \| pnpm admin:bootstrap <email> "<name>"` | Create the first administrator (password on stdin). Refused once one exists |
 
 ## Local setup
 

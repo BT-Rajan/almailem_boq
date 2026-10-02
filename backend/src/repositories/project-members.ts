@@ -1,4 +1,4 @@
-import { guarded } from '../db/errors';
+import { guarded, insertIfMissing } from '../db/errors';
 import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows } from '../db/sql';
 
@@ -6,6 +6,15 @@ export function projectMembersRepository(db: Db) {
   return {
     async add(projectId: string, userId: string): Promise<void> {
       await guarded('Project member', () =>
+        exec(db, 'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', [
+          projectId,
+          userId,
+        ]),
+      );
+    },
+    /** Idempotent add. True when the user was newly added, false when already a member. */
+    async addIfMissing(projectId: string, userId: string): Promise<boolean> {
+      return insertIfMissing('Project member', () =>
         exec(db, 'INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', [
           projectId,
           userId,

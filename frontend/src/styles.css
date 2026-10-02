@@ -45,3 +45,187 @@ body {
   flex: 1;
   padding: 16px;
 }
+h1 {
+  font-size: 16px;
+  margin: 0;
+}
+h2 {
+  font-size: 15px;
+  margin: 0;
+}
+h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+button,
+input,
+select {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-link {
+  border: none;
+  background: none;
+  color: var(--accent);
+}
+.spacer {
+  flex: 1;
+}
+.muted {
+  color: #6b7480;
+}
+.error {
+  color: var(--status-approval);
+  margin: 6px 0;
+}
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+}
+.nav a {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+.nav a.active {
+  background: var(--bg);
+  color: var(--accent);
+}
+.shell-header {
+  gap: 12px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.toolbar,
+.pager,
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar {
+  margin-bottom: 8px;
+}
+.pager {
+  margin-top: 8px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.table th {
+  font-weight: 500;
+  color: #6b7480;
+  font-size: 12px;
+}
+.table .num {
+  text-align: right;
+}
+.table tr.clickable {
+  cursor: pointer;
+}
+.table tr.clickable:hover {
+  background: var(--bg);
+}
+.perms {
+  font-size: 12px;
+  color: #4a5360;
+}
+.tag {
+  font-size: 12px;
+}
+.tag-disabled {
+  color: #6b7480;
+}
+.tag-locked {
+  color: var(--status-warning);
+}
+.login {
+  max-width: 320px;
+  margin: 48px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form label,
+.login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 6px 8px;
+  margin: 0;
+}
+.facts dt {
+  color: #6b7480;
+}
+.facts dd {
+  margin: 0;
+}
+.slideover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 41, 51, 0.2);
+  display: flex;
+  justify-content: flex-end;
+}
+.slideover {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.slideover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.slideover-body {
+  padding: 12px;
+  overflow-y: auto;
+}

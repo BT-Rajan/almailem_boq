@@ -29,6 +29,13 @@ export function buildSet<P extends Record<string, unknown>>(
   return parts.length ? { sql: parts.join(', '), params } : null;
 }
 
+/** LIKE pattern matching `text` anywhere, with the user's own % and _ taken literally. */
+export const containsPattern = (text: string): string =>
+  `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+/** "?, ?, ?" for an IN (...) list. Callers must not pass an empty list. */
+export const placeholders = (n: number): string => Array.from({ length: n }, () => '?').join(', ');
+
 export const str = (row: Row, key: string): string => String(row[key]);
 export const strOrNull = (row: Row, key: string): string | null =>
   row[key] === null ? null : String(row[key]);

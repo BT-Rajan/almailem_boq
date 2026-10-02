@@ -27,6 +27,26 @@ export function mapDbError(err: unknown, label: string): unknown {
   }
 }
 
+export const isDuplicateKey = (err: unknown): boolean => codeOf(err) === DUP_ENTRY;
+
+/**
+ * Insert a row that may already exist. True when inserted, false when it was already there.
+ * (ON DUPLICATE KEY cannot tell the two apart: the driver reports found rows, not changed rows.)
+ * A duplicate-key error rolls back only its own statement, so this is safe inside a transaction.
+ */
+export async function insertIfMissing(
+  label: string,
+  run: () => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    await run();
+    return true;
+  } catch (err) {
+    if (isDuplicateKey(err)) return false;
+    throw mapDbError(err, label);
+  }
+}
+
 /** Run a write and translate constraint errors. */
 export async function guarded<T>(label: string, run: () => Promise<T>): Promise<T> {
   try {

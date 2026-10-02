@@ -1,6 +1,7 @@
+import type { ProjectRef } from '@boq/shared';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
-import { exec, selectOne, type Row } from '../db/sql';
+import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
   liveClause,
@@ -49,6 +50,12 @@ const map = (r: Row): ProjectRecord => ({
   updatedAt: toDate(r['updated_at']),
 });
 
+const mapRef = (r: Row): ProjectRef => ({
+  id: str(r, 'id'),
+  code: str(r, 'code'),
+  name: str(r, 'name'),
+});
+
 const COLUMNS = {
   name: 'name',
   ownerUserId: 'owner_user_id',
@@ -90,6 +97,24 @@ export function projectsRepository(db: Db) {
         code,
       ]);
       return row ? map(row) : null;
+    },
+    /** Live projects, by code. For pickers; the full project list arrives with project management. */
+    async listRefs(): Promise<ProjectRef[]> {
+      const rows = await selectRows(
+        db,
+        'SELECT id, code, name FROM projects WHERE deleted_at IS NULL ORDER BY code',
+      );
+      return rows.map(mapRef);
+    },
+    /** Live projects the user is a member of, by code. */
+    async listRefsForMember(userId: string): Promise<ProjectRef[]> {
+      const rows = await selectRows(
+        db,
+        `SELECT p.id, p.code, p.name FROM projects p JOIN project_members m ON m.project_id = p.id
+          WHERE m.user_id = ? AND p.deleted_at IS NULL ORDER BY p.code`,
+        [userId],
+      );
+      return rows.map(mapRef);
     },
     async update(id: string, patch: ProjectPatch): Promise<boolean> {
       const set = buildSet(patch, COLUMNS);
