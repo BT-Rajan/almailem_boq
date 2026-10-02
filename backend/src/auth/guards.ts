@@ -21,6 +21,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const mark = <T extends object>(fn: T, symbol: symbol, value: unknown = true): T =>
   Object.defineProperty(fn, symbol, { value });
 
+/** The value a guard was marked with (a permission code, or "project:<param>"). */
+export function markValue(handler: unknown, symbol: symbol): unknown {
+  return typeof handler === 'function'
+    ? (handler as unknown as Record<symbol, unknown>)[symbol]
+    : undefined;
+}
+
 export function hasMark(handler: unknown, symbol: symbol): boolean {
   return (
     typeof handler === 'function' &&

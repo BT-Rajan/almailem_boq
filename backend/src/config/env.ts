@@ -5,7 +5,7 @@ const envSchema = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  // mysql://user:password@host:3306/database (MariaDB). Optional until the app uses the database.
+  // mysql://<user>:<password>@<host>:3306/<database> (MariaDB). Optional until the app uses the database.
   DATABASE_URL: z
     .string()
     .regex(/^(mysql|mariadb):\/\//)
@@ -25,6 +25,8 @@ const envSchema = z.object({
   // Expense attachments: a directory the web server never serves. Files are stored under random names.
   ATTACHMENTS_DIR: z.string().min(1).default('data/attachments'),
   ATTACHMENT_MAX_MB: z.coerce.number().int().min(1).max(50).default(10),
+  // Bill uploads allowed per user per hour (in-memory, per server process).
+  ATTACHMENT_UPLOADS_PER_HOUR: z.coerce.number().int().min(1).max(10_000).default(120),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173')

@@ -4,7 +4,7 @@ import type { DbPool } from '../db/pool';
 import { AppError } from '../errors/app-error';
 import { createAuthService } from './auth-service';
 import type { AuthConfig } from './config';
-import { AUTHENTICATE_MARK, AUTHORIZE_MARK, createGuards, hasMark } from './guards';
+import { AUTHENTICATE_MARK, AUTHORIZE_MARK, createGuards, hasMark, markValue } from './guards';
 import { createRateLimiter, type RateLimiter } from './rate-limit';
 import { registerAuthRoutes } from './routes';
 import type { RouteInfo } from './types';
@@ -47,12 +47,22 @@ export async function registerAuth(
   app.addHook('onRoute', (route) => {
     const methods = [route.method].flat();
     const isPublic = route.config?.public === true;
+    const hooks = [route.onRequest ?? []].flat();
+    const marks = hooks
+      .map((h) => markValue(h, AUTHORIZE_MARK))
+      .filter((v) => typeof v === 'string');
+    const project = marks.find((v) => v.startsWith('project:'));
     for (const method of methods)
-      app.routeRegistry.push({ method, url: route.url, public: isPublic });
+      app.routeRegistry.push({
+        method,
+        url: route.url,
+        public: isPublic,
+        permissions: marks.filter((v) => !v.startsWith('project:')),
+        projectParam: project ? project.slice('project:'.length) : null,
+      });
 
     if (isPublic || methods.every((m) => m === 'OPTIONS')) return; // OPTIONS = CORS preflight
 
-    const hooks = [route.onRequest ?? []].flat();
     const where = `${methods.join(',')} ${route.url}`;
     if (!hooks.some((h) => hasMark(h, AUTHENTICATE_MARK))) {
       throw new Error(`Route ${where} must use authenticate, or be marked config.public`);

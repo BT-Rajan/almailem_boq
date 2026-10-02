@@ -227,3 +227,13 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
 - **Not in `pnpm test`:** the iPad checks need a Chromium build, which this container pre-installs. Elsewhere, run `pnpm --filter @boq/frontend exec playwright install chromium` once. CI should run `pnpm test:ipad` as its own step.
 - **Approvals as bottom sheets:** there are no approval actions yet (Chunk 10 was skipped). When it lands, its actions should use `SlideOver sheet` and the `primary-action` class.
 - **Found by looking at the screenshots and then covered by checks:** sticky table cells and the corner button painted over the open sheet (the backdrop had no stacking level), and the portrait BoQ squeezed long names into tall rows instead of scrolling.
+
+## D26. Hardening (Chunk 18)
+Findings, fixes and accepted risks are in HARDENING.md; deployment in DEPLOY.md; latencies in PERFORMANCE.md. Decisions worth reviewing:
+- **The access policy is pinned in a test** (route, permission, project-scoped). Changing who may call a route now means editing that table, so it shows in review.
+- **New public route `/api/ready`** for load balancers: it says only "ready" or 503.
+- **Bill uploads are limited** to 120 per user per hour (`ATTACHMENT_UPLOADS_PER_HOUR`).
+- **Dependencies:** vitest moved from 3 to 4.1.11 and esbuild is pinned to 0.28.1 or later through a pnpm override, to clear the audit (all findings were development-only).
+- **Two database accounts in production:** the app's (data only, so it cannot alter tables or the audit triggers) and an admin one for migrations, backups and restores.
+- **The app's CSP** is set by the web server and was verified against the production build.
+- **Not hardened, because not built:** approvals (10), notifications (11), reports and exports (14), Excel import (15), audit viewer (16). HARDENING.md marks each related check N/A; they must be done when those chunks land.

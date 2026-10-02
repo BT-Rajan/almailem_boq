@@ -54,3 +54,28 @@ Dataset: 100 projects x 32 heads x 100,000 expenses. Query only, median of 7.
 
 - **Search matches "contains"** (`LIKE '%text%'`), which no B-tree index can seek. Every expense path therefore leads with `project_id`, so a search reads only the visible projects' entries. Full-text engines are out of scope for V1. If global search grows slow, the cheap step is prefix matching on codes and invoice numbers (`LIKE 'text%'` seeks `ix_expenses_project_invoice`).
 - **Migration 0012** adds `ix_expenses_project_invoice`, `ix_expenses_project_date` and `ix_projects_name`. A test checks that every search, filter and sort path has an index leading with its columns.
+
+## Load test: p95 latencies (Chunk 18)
+
+Dataset: 100 projects x 32 heads x 5,000 expenses (the pack's). Each endpoint 100 times (reverse 50) at **concurrency 10**, through the full stack: auth, session lookup, guards, JSON. The test database pool has 4 connections, so these figures include queueing. Run it with `LOAD_REPORT=<file> npx vitest run src/routes/load.test.ts` (backend), which also fails if a target is missed. **Targets: reads p95 <= 300 ms, writes p95 <= 500 ms. All met.**
+
+| Endpoint | p50 ms | p95 ms | max ms |
+|---|---|---|---|
+| GET /api/dashboard (admin, 100 projects) | 110 | 134 | 144 |
+| GET /api/dashboard (member, 50 projects) | 60 | 74 | 92 |
+| GET /api/projects?q=&sort=name | 15 | 22 | 24 |
+| GET /api/projects/:id/boq | 16 | 20 | 23 |
+| GET /api/projects/:id/boq?order=attention | 15 | 55 | 63 |
+| GET /api/projects/:id/cost-heads/:id | 16 | 20 | 26 |
+| GET /api/projects/:id/expenses?sort=amount | 14 | 17 | 20 |
+| GET .../projection?amountFils= | 13 | 16 | 16 |
+| GET /api/search?q=INV-1 (member) | 27 | 33 | 43 |
+| GET /api/search?q=INV-1 (admin) | 24 | 32 | 43 |
+| POST /api/projects/:id/expenses | 19 | 26 | 36 |
+| POST .../expenses/:id/reverse | 22 | 27 | 33 |
+| PUT /api/projects/:id/estimates (1 head) | 28 | 33 | 40 |
+
+### Notes
+
+- **Slowest read: the all-projects dashboard (134 ms p95)**, because it sums every project. It grows with the number of projects a user can see. Past a few hundred projects, cache the totals or use summary tables (not needed for V1).
+- **Every hot query was EXPLAINed** (sections above). Each one reads through an index that leads with `project_id` or the primary key. No missing indexes were found in this chunk: migrations 0011 and 0012 already added them.

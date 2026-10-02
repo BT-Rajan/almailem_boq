@@ -14,13 +14,20 @@ import {
 } from '@boq/shared';
 import type { AttachmentStorage } from '../attachments/storage';
 import { currentActor } from '../auth/guards';
+import type { RateLimiter } from '../auth/rate-limit';
+import { AppError } from '../errors/app-error';
 import type { DbPool } from '../db/pool';
 import { createExpenseService } from '../services/expenses';
 
 /** Expenses, reversals, attachments and the cost-head detail. Thin: validate > guard > service. */
 export function registerExpenseRoutes(
   app: FastifyInstance,
-  deps: { pool: DbPool; storage: AttachmentStorage; attachmentMaxBytes: number },
+  deps: {
+    pool: DbPool;
+    storage: AttachmentStorage;
+    attachmentMaxBytes: number;
+    uploadLimiter: RateLimiter;
+  },
 ): void {
   const service = createExpenseService(deps.pool, deps.storage);
   const { authenticate, authorize, authorizeProjectAccess } = app.guards;
@@ -119,12 +126,18 @@ export function registerExpenseRoutes(
     scope.put(
       '/api/projects/:projectId/expenses/:expenseId/attachment',
       { ...onProject('expense.edit'), bodyLimit: deps.attachmentMaxBytes },
-      async (request) => {
+      async (request, reply) => {
         const { projectId, expenseId } = expenseParamsSchema.parse(request.params);
+        const actor = currentActor(request);
+        const verdict = deps.uploadLimiter.take(`upload:${actor.userId}`);
+        if (!verdict.allowed) {
+          void reply.header('retry-after', String(verdict.retryAfterSeconds));
+          throw AppError.rateLimited('Too many uploads. Try again later.');
+        }
         const data = request.body;
         const rawName = request.headers[ATTACHMENT_NAME_HEADER];
         return okResponse(
-          await service.attach(currentActor(request), projectId, expenseId, {
+          await service.attach(actor, projectId, expenseId, {
             data: Buffer.isBuffer(data) ? data : Buffer.alloc(0),
             declaredType:
               String(request.headers['content-type'] ?? '')

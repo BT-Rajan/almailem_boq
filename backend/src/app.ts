@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { DbPool } from './db/pool';
 import { authConfig } from './auth/config';
 import { registerAuth } from './auth/plugin';
-import type { RateLimiter } from './auth/rate-limit';
+import { createRateLimiter, type RateLimiter } from './auth/rate-limit';
 import type { Env } from './config/env';
 import { registerErrorHandling } from './errors/error-handler';
 import { loggerOptions } from './logging/logger';
@@ -14,7 +14,8 @@ import { registerAdminUserRoutes } from './routes/admin-users';
 import { registerDashboardRoutes } from './routes/dashboard';
 import { registerEstimateRoutes } from './routes/estimates';
 import { registerExpenseRoutes } from './routes/expenses';
-import { registerHealthRoute } from './routes/health';
+import { registerSecurityHeaders } from './http/security-headers';
+import { registerHealthRoute, registerReadyRoute } from './routes/health';
 import { registerProjectRoutes } from './routes/projects';
 import { registerSearchRoutes } from './routes/search';
 
@@ -25,6 +26,8 @@ export type AppDeps = {
   logStream?: NodeJS.WritableStream;
   /** Tests only: inject a limiter with a controllable clock. */
   limiter?: RateLimiter;
+  /** Tests only: inject the attachment upload limiter. */
+  uploadLimiter?: RateLimiter;
 };
 
 export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyInstance> {
@@ -34,6 +37,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
 
   registerErrorHandling(app);
+  registerSecurityHeaders(app, { hsts: env.NODE_ENV === 'production' });
   await app.register(cors, { origin: env.CORS_ORIGINS, credentials: true });
 
   if (deps.pool) {
@@ -54,7 +58,11 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       pool: deps.pool,
       storage: createAttachmentStorage(env.ATTACHMENTS_DIR),
       attachmentMaxBytes: env.ATTACHMENT_MAX_MB * 1024 * 1024,
+      uploadLimiter:
+        deps.uploadLimiter ??
+        createRateLimiter({ max: env.ATTACHMENT_UPLOADS_PER_HOUR, windowMs: 60 * 60 * 1000 }),
     });
+    registerReadyRoute(app, { pool: deps.pool, attachmentsDir: env.ATTACHMENTS_DIR });
   }
   registerHealthRoute(app);
 

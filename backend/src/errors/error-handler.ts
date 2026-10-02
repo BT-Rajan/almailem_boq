@@ -2,6 +2,7 @@ import type { FastifyError, FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { errorResponse, MoneyError } from '@boq/shared';
 import { AppError } from './app-error';
+import { reportError } from './monitoring';
 
 /** Maps every failure to the shared envelope. Unknown errors never leak internals. */
 export function registerErrorHandling(app: FastifyInstance): void {
@@ -68,6 +69,12 @@ export function registerErrorHandling(app: FastifyInstance): void {
     }
 
     req.log.error({ err }, 'unhandled error');
+    reportError(err, {
+      source: 'request',
+      method: req.method,
+      url: req.routeOptions.url ?? req.url, // the route pattern, so ids and queries stay out
+      userId: req.auth?.user.id ?? null,
+    });
     void reply
       .code(500)
       .send(errorResponse({ code: 'INTERNAL_ERROR', message: 'Something went wrong' }));
