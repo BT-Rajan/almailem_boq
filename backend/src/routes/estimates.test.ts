@@ -177,7 +177,7 @@ describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
     await call(pm, 'POST', `/api/projects/${p.id}/status`, { status: 'cancelled' });
     const res = await setEst(p.id, [[heads[0] as CostHeadRecord, 1]]);
     expect(res.statusCode).toBe(409);
-    expect(res.json().error.code).toBe('BUDGET_LOCKED');
+    expect(res.json().error.code).toBe('PROJECT_CLOSED');
     expect((await getBoq(p.id)).editable).toBe(false);
   });
 

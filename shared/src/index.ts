@@ -3,6 +3,7 @@ export * from './auth';
 export * from './budget';
 export * from './cost-heads';
 export * from './envelope';
+export * from './expenses';
 export * from './money';
 export * from './permissions';
 export * from './projects';

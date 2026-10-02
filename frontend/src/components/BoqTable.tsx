@@ -5,8 +5,13 @@ import { formatFils, formatUtilisation, type BoqRow, type ProjectBoq } from '@bo
  * Every figure is the server's (domain/metrics); this only formats.
  * Status stays empty until the control engine exists (Chunk 09).
  */
-export function BoqTable(props: { boq: ProjectBoq; onEdit?: (row: BoqRow) => void }) {
-  const { boq, onEdit } = props;
+export function BoqTable(props: {
+  boq: ProjectBoq;
+  onEdit?: (row: BoqRow) => void;
+  /** When set, each head links to its detail page (expenses). */
+  projectId?: string;
+}) {
+  const { boq, onEdit, projectId } = props;
   const t = boq.total;
   return (
     <table className="table money">
@@ -27,7 +32,11 @@ export function BoqTable(props: { boq: ProjectBoq; onEdit?: (row: BoqRow) => voi
           <tr key={r.costHead.id} className={r.costHead.active ? undefined : 'inactive'}>
             <td>{r.costHead.code}</td>
             <td>
-              {r.costHead.name}
+              {projectId ? (
+                <a href={`#/projects/${projectId}/heads/${r.costHead.id}`}>{r.costHead.name}</a>
+              ) : (
+                r.costHead.name
+              )}
               {!r.costHead.active && <span className="muted"> (inactive)</span>}
             </td>
             <td className="num">{formatFils(r.metrics.budget)}</td>

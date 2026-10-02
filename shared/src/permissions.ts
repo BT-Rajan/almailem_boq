@@ -16,6 +16,7 @@ export const PERMISSION_CODES = [
   'project.members.manage',
   'estimate.edit',
   'expense.create',
+  'expense.edit',
   'expense.reverse',
   'expense.view',
   'approval.request',

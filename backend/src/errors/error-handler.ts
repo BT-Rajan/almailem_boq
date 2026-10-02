@@ -46,6 +46,18 @@ export function registerErrorHandling(app: FastifyInstance): void {
 
     // Fastify's own client errors (bad JSON, payload too large, ...)
     const status = 'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : 500;
+    if (status === 413 || status === 415) {
+      void reply
+        .code(status)
+        .send(
+          errorResponse(
+            status === 413
+              ? { code: 'PAYLOAD_TOO_LARGE', message: 'The file is too large' }
+              : { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Unsupported content type' },
+          ),
+        );
+      return;
+    }
     if (status >= 400 && status < 500) {
       void reply
         .code(status)

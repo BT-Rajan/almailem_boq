@@ -15,6 +15,7 @@ const ALL_TABLES = [
   'cost_heads',
   'audit_log',
   'project_estimates',
+  'expenses',
 ];
 
 describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
@@ -69,6 +70,7 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
         'projects',
         'cost_heads',
         'project_estimates',
+        'expenses',
       ];
       for (const t of ALL_TABLES) {
         const cols = await columnsOf(t);
@@ -89,7 +91,15 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
     });
 
     it('entity ids are native UUID columns', async () => {
-      for (const t of ['users', 'roles', 'permissions', 'projects', 'cost_heads', 'sessions']) {
+      for (const t of [
+        'users',
+        'roles',
+        'permissions',
+        'projects',
+        'cost_heads',
+        'sessions',
+        'expenses',
+      ]) {
         const rows = await q(
           "SELECT column_type AS ct FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'id'",
           [t],
@@ -104,8 +114,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
          WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL`,
       );
       // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1,
-      // project_estimates 2
-      expect(fks).toHaveLength(11);
+      // project_estimates 2, expenses 4
+      expect(fks).toHaveLength(15);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics
@@ -288,6 +298,65 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
         [p, h],
       );
       await expect(q('DELETE FROM cost_heads WHERE id = ?', [h])).rejects.toThrow(/foreign key/i);
+    });
+  });
+
+  describe('expenses', () => {
+    let p: string;
+    let h: string;
+    let u: string;
+    beforeAll(async () => {
+      u = await user('exp@x.com');
+      p = await project('EXP-1', u);
+      h = String(
+        (await q("INSERT INTO cost_heads (code, name) VALUES ('XH-1', 'h') RETURNING id"))[0]?.[
+          'id'
+        ],
+      );
+    });
+    const add = async (
+      vendor: string,
+      invoice: string,
+      amount: number,
+      reversalOf: string | null = null,
+    ) =>
+      String(
+        (
+          await q(
+            `INSERT INTO expenses (project_id, cost_head_id, vendor, invoice_no, expense_date, amount_fils, created_by, reversal_of)
+             VALUES (?, ?, ?, ?, '2026-01-01', ?, ?, ?) RETURNING id`,
+            [p, h, vendor, invoice, amount, u, reversalOf],
+          )
+        )[0]?.['id'],
+      );
+
+    it('blocks a duplicate vendor invoice in a project, regardless of case', async () => {
+      await add('Acme Trading', 'INV-1', 100);
+      await expect(add('ACME TRADING', 'inv-1', 5)).rejects.toThrow(/Duplicate/);
+      await expect(add('Other Co', 'INV-1', 5)).resolves.toBeDefined();
+    });
+
+    it('a reversal may repeat the invoice; once reversed the invoice can be entered again', async () => {
+      const original = await add('Beta', 'B-7', 100);
+      await add('Beta', 'B-7', -100, original); // the reversal entry
+      await expect(add('Beta', 'B-7', 90)).rejects.toThrow(/Duplicate/); // original still live
+      await q('UPDATE expenses SET reversed_at = CURRENT_TIMESTAMP(3) WHERE id = ?', [original]);
+      await expect(add('Beta', 'B-7', 90)).resolves.toBeDefined();
+    });
+
+    it('originals are positive, reversals negative, and an expense is reversed at most once', async () => {
+      await expect(add('Gamma', 'G-1', 0)).rejects.toThrow(/ck_expenses_amount_sign/);
+      await expect(add('Gamma', 'G-2', -5)).rejects.toThrow(/ck_expenses_amount_sign/);
+      const o = await add('Gamma', 'G-3', 50);
+      await expect(add('Gamma', 'G-3', 50, o)).rejects.toThrow(/ck_expenses_amount_sign/);
+      await add('Gamma', 'G-3', -50, o);
+      await expect(add('Gamma', 'G-3', -50, o)).rejects.toThrow(/Duplicate/);
+    });
+
+    it('expenses cannot be hard-deleted while a reversal points at them', async () => {
+      const o = await add('Delta', 'D-1', 10);
+      await add('Delta', 'D-1', -10, o);
+      await expect(q('DELETE FROM expenses WHERE id = ?', [o])).rejects.toThrow(/foreign key/i);
     });
   });
 

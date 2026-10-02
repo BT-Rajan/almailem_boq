@@ -11,6 +11,7 @@ almailem_boq/
       auth/                # config, passwords (argon2id), tokens, rate-limit, auth-service (login/resolve/logout),
                            # guards (authenticate, authorize, authorizeProjectAccess), routes, plugin (deny-by-default)
       audit/               # recordAudit(): the only writer to audit_log, with secret redaction
+      attachments/         # bill files: type sniffing, random-name storage outside any served dir
       domain/
         project-status.ts  # allowed project status transitions - pure
         metrics.ts         # budgetMetrics({budget, actual}), totalMetrics - pure, no I/O, no thresholds

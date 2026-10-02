@@ -42,6 +42,10 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
     credentials: 'same-origin',
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
+  return unwrap<T>(res);
+}
+
+async function unwrap<T>(res: Response): Promise<T> {
   let envelope: ApiResponse<T> | null = null;
   try {
     envelope = (await res.json()) as ApiResponse<T>;
@@ -51,6 +55,21 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
   if (!envelope) throw new ApiError(res.status, 'BAD_RESPONSE', 'Unexpected response from server');
   if (!envelope.ok) throw new ApiError(res.status, envelope.error.code, messageOf(envelope.error));
   return envelope.data;
+}
+
+/** Send a file as the request body (attachments). Same envelope, CSRF and errors as api(). */
+export async function apiUpload<T>(path: string, file: File, nameHeader: string): Promise<T> {
+  const res = await fetch(path, {
+    method: 'PUT',
+    headers: {
+      'content-type': file.type || 'application/octet-stream',
+      [nameHeader]: encodeURIComponent(file.name),
+      ...(csrfToken && { [CSRF_HEADER]: csrfToken }),
+    },
+    credentials: 'same-origin',
+    body: file,
+  });
+  return unwrap<T>(res);
 }
 
 /** Build "?a=1&b=2", skipping empty values. */

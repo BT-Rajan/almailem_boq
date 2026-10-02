@@ -1,4 +1,4 @@
-import { fils, sumFils, subFils, type BudgetMetrics, type Fils } from '@boq/shared';
+import { sumFils, subFils, type BudgetMetrics, type Fils } from '@boq/shared';
 
 /**
  * The ONE place budget maths happens: remaining, utilisation and totals.
@@ -47,6 +47,3 @@ export function totalMetrics(rows: readonly { budget: Fils; actual: Fils }[]): B
     actual: sumFils(rows.map((r) => r.actual)),
   });
 }
-
-/** Zero, as Fils. Until expenses exist (Chunk 08), every actual is this. */
-export const NO_SPEND: Fils = fils(0);

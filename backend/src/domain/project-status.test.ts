@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PROJECT_STATUSES } from '@boq/shared';
 import {
   INITIAL_PROJECT_STATUS,
-  allowsBudgetChanges,
+  acceptsFinancialChanges,
   canTransition,
   nextStatuses,
 } from './project-status';
@@ -50,7 +50,7 @@ describe('project status transitions', () => {
   });
 });
 
-describe('allowsBudgetChanges', () => {
+describe('acceptsFinancialChanges (budgets and spend)', () => {
   it.each([
     ['planned', true],
     ['active', true],
@@ -58,6 +58,6 @@ describe('allowsBudgetChanges', () => {
     ['completed', false],
     ['cancelled', false],
   ] as const)('%s -> %s', (status, ok) => {
-    expect(allowsBudgetChanges(status)).toBe(ok);
+    expect(acceptsFinancialChanges(status)).toBe(ok);
   });
 });

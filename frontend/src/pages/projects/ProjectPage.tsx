@@ -17,6 +17,7 @@ import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { UserPicker } from '../../components/UserPicker';
+import { ExpenseForm } from '../expenses/ExpenseForm';
 import { ProjectForm, toRequest } from './ProjectForm';
 
 type Tab = 'boq' | 'details' | 'members';
@@ -128,11 +129,32 @@ function Boq(props: { projectId: string }) {
   const { projectId } = props;
   const boq = useLoad(useCallback(() => getBoq(projectId), [projectId]));
   const [editing, setEditing] = useState<BoqRow | null>(null);
+  const [adding, setAdding] = useState(false);
   const close = useCallback(() => setEditing(null), []);
+  const closeAdd = useCallback(() => setAdding(false), []);
   if (!boq.data) return <ErrorText message={boq.error} />;
   return (
     <>
-      <BoqTable boq={boq.data} onEdit={setEditing} />
+      <div className="row boq-actions">
+        <span className="spacer" />
+        {boq.data.editable && (
+          <button type="button" className="btn-primary" onClick={() => setAdding(true)}>
+            Add expense
+          </button>
+        )}
+      </div>
+      <BoqTable boq={boq.data} onEdit={setEditing} projectId={projectId} />
+      {adding && (
+        <SlideOver title="Add expense" onClose={closeAdd}>
+          <ExpenseForm
+            projectId={projectId}
+            onSaved={() => {
+              closeAdd();
+              boq.reload();
+            }}
+          />
+        </SlideOver>
+      )}
       {editing && (
         <SlideOver title={`Budget: ${editing.costHead.code}`} onClose={close}>
           <BudgetForm

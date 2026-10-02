@@ -2,14 +2,18 @@ import { fils, projectStatusSchema, type ProjectBoq, type SetEstimatesRequest } 
 import { recordAudit, type AuditActor } from '../audit/record-audit';
 import type { Db, DbPool } from '../db/pool';
 import { withTransaction } from '../db/transaction';
-import { budgetMetrics, NO_SPEND, totalMetrics } from '../domain/metrics';
-import { allowsBudgetChanges } from '../domain/project-status';
+import { budgetMetrics, totalMetrics } from '../domain/metrics';
+import { acceptsFinancialChanges } from '../domain/project-status';
 import { AppError } from '../errors/app-error';
-import { costHeadsRepository, estimatesRepository, projectsRepository } from '../repositories';
+import {
+  costHeadsRepository,
+  estimatesRepository,
+  expensesRepository,
+  projectsRepository,
+} from '../repositories';
 
 /**
- * Project BoQ: the budget (estimate) per cost head, with metrics from domain/metrics.
- * Actual is zero until expenses exist (Chunk 08).
+ * Project BoQ: budget (estimate) and actual (expenses) per cost head, measured by domain/metrics.
  */
 
 async function requireProject(db: Db, id: string) {
@@ -18,17 +22,24 @@ async function requireProject(db: Db, id: string) {
   return { ...p, status: projectStatusSchema.parse(p.status) };
 }
 
-async function boq(db: Db, projectId: string): Promise<ProjectBoq> {
+/**
+ * The project's figures per cost head and in total. The BoQ table and the cost-head detail both
+ * read this, so they always agree.
+ */
+export async function loadBoq(db: Db, projectId: string): Promise<ProjectBoq> {
   const project = await requireProject(db, projectId);
-  const [heads, budgets] = await Promise.all([
+  const [heads, budgets, actuals] = await Promise.all([
     costHeadsRepository(db).list({ includeInactive: true }),
     estimatesRepository(db).listForProject(projectId),
+    expensesRepository(db).actualsByHead(projectId),
   ]);
-  // Active heads, plus any inactive head that still carries a budget, so totals stay honest.
-  const shown = heads.filter((h) => h.active || (budgets.get(h.id) ?? 0) !== 0);
+  // Active heads, plus any inactive head that still carries a budget or spend, so totals stay honest.
+  const shown = heads.filter(
+    (h) => h.active || (budgets.get(h.id) ?? 0) !== 0 || (actuals.get(h.id) ?? 0) !== 0,
+  );
   const lines = shown.map((h) => ({
     head: h,
-    figures: { budget: budgets.get(h.id) ?? fils(0), actual: NO_SPEND },
+    figures: { budget: budgets.get(h.id) ?? fils(0), actual: actuals.get(h.id) ?? fils(0) },
   }));
   return {
     rows: lines.map(({ head, figures }) => ({
@@ -36,14 +47,14 @@ async function boq(db: Db, projectId: string): Promise<ProjectBoq> {
       metrics: budgetMetrics(figures),
     })),
     total: totalMetrics(lines.map((l) => l.figures)),
-    editable: allowsBudgetChanges(project.status),
+    editable: acceptsFinancialChanges(project.status),
   };
 }
 
 export function createEstimateService(pool: DbPool) {
   return {
     getBoq(projectId: string): Promise<ProjectBoq> {
-      return boq(pool, projectId);
+      return loadBoq(pool, projectId);
     },
 
     /**
@@ -60,9 +71,9 @@ export function createEstimateService(pool: DbPool) {
         const locked = await projectsRepository(tx).lockById(projectId);
         if (!locked) throw AppError.notFound('Project not found');
         const project = { ...locked, status: projectStatusSchema.parse(locked.status) };
-        if (!allowsBudgetChanges(project.status)) {
+        if (!acceptsFinancialChanges(project.status)) {
           throw new AppError(
-            'BUDGET_LOCKED',
+            'PROJECT_CLOSED',
             `Budgets of a ${project.status} project cannot change`,
             409,
           );
@@ -88,7 +99,7 @@ export function createEstimateService(pool: DbPool) {
             { costHeadId: head.id, code: head.code, amountFils: amount },
           );
         }
-        return boq(tx, projectId);
+        return loadBoq(tx, projectId);
       });
     },
   };

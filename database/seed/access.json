@@ -19,6 +19,7 @@
     { "code": "project.members.manage", "description": "Add and remove project members" },
     { "code": "estimate.edit", "description": "Edit project estimates (budgets)" },
     { "code": "expense.create", "description": "Record expenses and bills" },
+    { "code": "expense.edit", "description": "Correct a recorded expense or add its attachment" },
     { "code": "expense.reverse", "description": "Reverse an expense" },
     { "code": "expense.view", "description": "View expenses" },
     { "code": "approval.request", "description": "Request approval for over-budget spend" },

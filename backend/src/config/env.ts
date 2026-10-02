@@ -22,6 +22,9 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // Expense attachments: a directory the web server never serves. Files are stored under random names.
+  ATTACHMENTS_DIR: z.string().min(1).default('data/attachments'),
+  ATTACHMENT_MAX_MB: z.coerce.number().int().min(1).max(50).default(10),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173')

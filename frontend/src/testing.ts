@@ -17,7 +17,8 @@ export function mockApi(handlers: Record<string, Handler>) {
         method: init.method ?? 'GET',
         url,
         headers: (init.headers ?? {}) as Record<string, string>,
-        body: init.body ? JSON.parse(String(init.body)) : undefined,
+        // JSON bodies are parsed; a file body is kept as is.
+        body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body,
       };
       calls.push(call);
       const path = url.split('?')[0];

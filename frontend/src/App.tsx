@@ -3,6 +3,7 @@ import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
 import { LoginPage } from './pages/LoginPage';
 import { CostHeadsPage } from './pages/admin/CostHeadsPage';
+import { CostHeadPage } from './pages/expenses/CostHeadPage';
 import { RolesPage } from './pages/admin/RolesPage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { CreateProjectPage } from './pages/projects/CreateProjectPage';
@@ -25,6 +26,14 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
       nav: '#/projects',
       page: (
         <CreateProjectPage projectId={setup[1] as string} step={setup[2] as 'boq' | 'review'} />
+      ),
+    };
+  const head = /^#\/projects\/([0-9a-f-]{36})\/heads\/([0-9a-f-]{36})$/i.exec(hash);
+  if (head)
+    return {
+      nav: '#/projects',
+      page: (
+        <CostHeadPage key={hash} projectId={head[1] as string} costHeadId={head[2] as string} />
       ),
     };
   const project = /^#\/projects\/([0-9a-f-]{36})$/i.exec(hash);

@@ -1,4 +1,5 @@
 import cors from '@fastify/cors';
+import { createAttachmentStorage } from './attachments/storage';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { DbPool } from './db/pool';
 import { authConfig } from './auth/config';
@@ -10,6 +11,7 @@ import { loggerOptions } from './logging/logger';
 import { registerAdminCostHeadRoutes } from './routes/admin-cost-heads';
 import { registerAdminUserRoutes } from './routes/admin-users';
 import { registerEstimateRoutes } from './routes/estimates';
+import { registerExpenseRoutes } from './routes/expenses';
 import { registerHealthRoute } from './routes/health';
 import { registerProjectRoutes } from './routes/projects';
 
@@ -42,6 +44,11 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     registerAdminCostHeadRoutes(app, { pool: deps.pool });
     registerProjectRoutes(app, { pool: deps.pool });
     registerEstimateRoutes(app, { pool: deps.pool });
+    registerExpenseRoutes(app, {
+      pool: deps.pool,
+      storage: createAttachmentStorage(env.ATTACHMENTS_DIR),
+      attachmentMaxBytes: env.ATTACHMENT_MAX_MB * 1024 * 1024,
+    });
   }
   registerHealthRoute(app);
 
