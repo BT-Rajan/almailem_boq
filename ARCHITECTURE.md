@@ -8,8 +8,9 @@ almailem_boq/
   shared/                  # zod schemas, types, money helpers (the only place types are defined)
   backend/
     src/
-      auth/                # authenticate, authorize, authorizeProjectAccess, sessions
-      audit/               # recordAudit() helper
+      auth/                # config, passwords (argon2id), tokens, rate-limit, auth-service (login/resolve/logout),
+                           # guards (authenticate, authorize, authorizeProjectAccess), routes, plugin (deny-by-default)
+      audit/               # recordAudit(): the only writer to audit_log, with secret redaction
       domain/
         metrics/           # budgetMetrics({budget, actual}) - pure, no I/O, no thresholds
         control/           # calculateBudgetStatus, projectedStatus - pure, owns thresholds

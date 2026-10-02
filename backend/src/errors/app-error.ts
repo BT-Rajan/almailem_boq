@@ -22,6 +22,9 @@ export class AppError extends Error {
   static forbidden(message = 'Not allowed'): AppError {
     return new AppError('FORBIDDEN', message, 403);
   }
+  static rateLimited(message = 'Too many attempts. Try again later.'): AppError {
+    return new AppError('RATE_LIMITED', message, 429);
+  }
   static conflict(message: string, details?: unknown): AppError {
     return new AppError('CONFLICT', message, 409, details);
   }

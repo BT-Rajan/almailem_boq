@@ -1,5 +1,8 @@
 import mysql, { type Pool, type PoolConnection, type PoolOptions } from 'mysql2/promise';
 
+/** The connection pool type, re-exported so application code never imports the driver itself. */
+export type DbPool = Pool;
+
 /** A pool, or a connection checked out of one (for transactions). Repositories take either. */
 export type Db = Pool | PoolConnection;
 

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PERMISSION_CODES } from '@boq/shared';
 import {
   costHeadsRepository,
   permissionsRepository,
@@ -9,6 +10,11 @@ import { migrateUp } from './migrator';
 import { ACCESS_SEED_FILE, MIGRATIONS_DIR } from './paths';
 import { loadAccessSeed, seedAccess } from './seed';
 import { createTestDatabase, hasTestDb, type TestDatabase } from './testing';
+
+it('the seed file lists exactly the permission codes the code knows about', async () => {
+  const seed = await loadAccessSeed(ACCESS_SEED_FILE);
+  expect(seed.permissions.map((p) => p.code).sort()).toEqual([...PERMISSION_CODES].sort());
+});
 
 describe.skipIf(!hasTestDb)('access seed (real MariaDB)', () => {
   let db: TestDatabase;

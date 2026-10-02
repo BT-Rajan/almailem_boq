@@ -10,6 +10,18 @@ const envSchema = z.object({
     .string()
     .regex(/^(mysql|mariadb):\/\//)
     .optional(),
+  // Auth. Defaults are deliberate: change only with a reason.
+  SESSION_IDLE_MINUTES: z.coerce.number().int().min(1).max(1440).default(120),
+  SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(168).default(12),
+  LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(5),
+  LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  // Login attempts allowed per client IP per 15 minutes (in-memory, per server process).
+  LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(30),
+  // Set to true only behind a trusted reverse proxy, so the real client IP is used.
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   CORS_ORIGINS: z
     .string()
     .default('http://localhost:5173')

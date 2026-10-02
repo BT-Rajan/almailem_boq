@@ -28,6 +28,16 @@ export function projectMembersRepository(db: Db) {
       );
       return row !== null;
     },
+    /** True when the project exists, is not deleted, and the user is one of its members. */
+    async hasAccess(projectId: string, userId: string): Promise<boolean> {
+      const row = await selectOne(
+        db,
+        `SELECT 1 AS found FROM project_members m JOIN projects p ON p.id = m.project_id
+          WHERE m.project_id = ? AND m.user_id = ? AND p.deleted_at IS NULL`,
+        [projectId, userId],
+      );
+      return row !== null;
+    },
     async listUserIds(projectId: string): Promise<string[]> {
       const rows = await selectRows(
         db,

@@ -67,6 +67,20 @@ export function permissionsRepository(db: Db) {
     async list(): Promise<PermissionRecord[]> {
       return (await selectRows(db, 'SELECT * FROM permissions ORDER BY code')).map(mapPermission);
     },
+    /** Every permission code the user holds through any role. */
+    async listCodesForUser(userId: string): Promise<string[]> {
+      const rows = await selectRows(
+        db,
+        `SELECT DISTINCT p.code
+           FROM user_roles ur
+           JOIN role_permissions rp ON rp.role_id = ur.role_id
+           JOIN permissions p ON p.id = rp.permission_id
+          WHERE ur.user_id = ?
+          ORDER BY p.code`,
+        [userId],
+      );
+      return rows.map((r) => String(r['code']));
+    },
     async upsertByCode(input: {
       code: string;
       description?: string | null;

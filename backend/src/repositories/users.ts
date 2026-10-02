@@ -19,6 +19,10 @@ export type UserRecord = Timestamps & {
   name: string;
   passwordHash: string;
   disabled: boolean;
+  failedLoginCount: number;
+  lockedUntil: Date | null;
+  /** True while the account is locked, judged by the database clock. */
+  locked: boolean;
   deletedAt: Date | null;
 };
 export type NewUser = { email: string; name: string; passwordHash: string };
@@ -30,10 +34,17 @@ const map = (r: Row): UserRecord => ({
   name: str(r, 'name'),
   passwordHash: str(r, 'password_hash'),
   disabled: toBool(r['disabled']),
+  failedLoginCount: Number(r['failed_login_count']),
+  lockedUntil: toDateOrNull(r['locked_until']),
+  locked: toBool(r['is_locked']),
   deletedAt: toDateOrNull(r['deleted_at']),
   createdAt: toDate(r['created_at']),
   updatedAt: toDate(r['updated_at']),
 });
+
+// is_locked is computed with the database clock, so lock checks never depend on app/DB clock drift.
+const SELECT_USER =
+  'SELECT *, (locked_until IS NOT NULL AND locked_until > CURRENT_TIMESTAMP(3)) AS is_locked FROM users';
 
 const COLUMNS = { name: 'name', passwordHash: 'password_hash', disabled: 'disabled' };
 
@@ -43,20 +54,18 @@ export function usersRepository(db: Db) {
       return guarded('User', async () => {
         const row = await selectOne(
           db,
-          'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?) RETURNING *',
+          'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?) RETURNING *, 0 AS is_locked',
           [input.email, input.name, input.passwordHash],
         );
         return map(row as Row);
       });
     },
     async findById(id: string, opts?: FindOptions): Promise<UserRecord | null> {
-      const row = await selectOne(db, `SELECT * FROM users WHERE id = ?${liveClause(opts)}`, [id]);
+      const row = await selectOne(db, `${SELECT_USER} WHERE id = ?${liveClause(opts)}`, [id]);
       return row ? map(row) : null;
     },
     async findByEmail(email: string, opts?: FindOptions): Promise<UserRecord | null> {
-      const row = await selectOne(db, `SELECT * FROM users WHERE email = ?${liveClause(opts)}`, [
-        email,
-      ]);
+      const row = await selectOne(db, `${SELECT_USER} WHERE email = ?${liveClause(opts)}`, [email]);
       return row ? map(row) : null;
     },
     /** Returns false when the user does not exist (or is deleted) or the patch is empty. */
@@ -77,6 +86,41 @@ export function usersRepository(db: Db) {
         [id],
       );
       return res.affectedRows > 0;
+    },
+    /**
+     * Count a failed login and lock the account once `maxAttempts` is reached.
+     * One atomic statement. MariaDB evaluates SET left to right and later assignments see earlier
+     * ones, so locked_until must come BEFORE failed_login_count to read the old count.
+     */
+    async recordFailedLogin(
+      id: string,
+      maxAttempts: number,
+      lockSeconds: number,
+    ): Promise<{ failedLoginCount: number; locked: boolean }> {
+      await exec(
+        db,
+        `UPDATE users
+            SET locked_until = IF(failed_login_count + 1 >= ?, TIMESTAMPADD(SECOND, ?, CURRENT_TIMESTAMP(3)), locked_until),
+                failed_login_count = failed_login_count + 1
+          WHERE id = ?`,
+        [maxAttempts, lockSeconds, id],
+      );
+      const user = await this.findById(id, { includeDeleted: true });
+      return { failedLoginCount: user?.failedLoginCount ?? 0, locked: user?.locked ?? false };
+    },
+    async recordSuccessfulLogin(id: string): Promise<void> {
+      await exec(db, 'UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?', [
+        id,
+      ]);
+    },
+    /** A lock that has run out is cleared, and the failure counter starts again from zero. */
+    async clearExpiredLock(id: string): Promise<void> {
+      await exec(
+        db,
+        `UPDATE users SET failed_login_count = 0, locked_until = NULL
+          WHERE id = ? AND locked_until IS NOT NULL AND locked_until <= CURRENT_TIMESTAMP(3)`,
+        [id],
+      );
     },
   };
 }

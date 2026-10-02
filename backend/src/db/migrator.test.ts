@@ -7,7 +7,15 @@ import { migrateDown, migrateDownAll, migrateUp, migrationStatus } from './migra
 import { MIGRATIONS_DIR } from './paths';
 import { createTestDatabase, hasTestDb, type TestDatabase } from './testing';
 
-const ALL = ['0001_users', '0002_access', '0003_projects', '0004_cost_heads', '0005_audit_log'];
+const ALL = [
+  '0001_users',
+  '0002_access',
+  '0003_projects',
+  '0004_cost_heads',
+  '0005_audit_log',
+  '0006_login_lockout',
+  '0007_sessions',
+];
 const APP_TABLES = [
   'audit_log',
   'cost_heads',
@@ -16,6 +24,7 @@ const APP_TABLES = [
   'projects',
   'role_permissions',
   'roles',
+  'sessions',
   'user_roles',
   'users',
 ];
@@ -66,10 +75,10 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
   it('rolls back one step at a time, newest first', async () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
-    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0005_audit_log']);
+    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0007_sessions']);
     const t = await tables(db);
-    expect(t).not.toContain('audit_log');
-    expect(t).toContain('cost_heads');
+    expect(t).not.toContain('sessions');
+    expect(t).toContain('audit_log');
   });
 
   it('refuses to run when an applied migration was edited', async () => {

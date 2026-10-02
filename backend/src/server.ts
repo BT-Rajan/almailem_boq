@@ -1,16 +1,22 @@
 import { existsSync } from 'node:fs';
 import { buildApp } from './app';
 import { loadEnv } from './config/env';
+import { createPool } from './db/pool';
 
 // Local development convenience; production sets real environment variables.
 if (existsSync('.env')) process.loadEnvFile('.env');
 
 const env = loadEnv();
-const app = await buildApp(env);
+if (!env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required to start the server');
+}
+const pool = createPool(env.DATABASE_URL);
+const app = await buildApp(env, { pool });
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
   await app.close();
+  await pool.end();
   process.exit(0);
 };
 process.on('SIGINT', () => void shutdown('SIGINT'));

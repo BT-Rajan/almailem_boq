@@ -69,8 +69,19 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       }
     });
 
+    it('login lockout columns exist on users, and sessions store a token hash, not a token', async () => {
+      expect(await columnsOf('users')).toEqual(
+        expect.arrayContaining(['failed_login_count', 'locked_until']),
+      );
+      const cols = await columnsOf('sessions');
+      expect(cols).toEqual(
+        expect.arrayContaining(['token_hash', 'csrf_token', 'expires_at', 'last_seen_at']),
+      );
+      expect(cols).not.toContain('token');
+    });
+
     it('entity ids are native UUID columns', async () => {
-      for (const t of ['users', 'roles', 'permissions', 'projects', 'cost_heads']) {
+      for (const t of ['users', 'roles', 'permissions', 'projects', 'cost_heads', 'sessions']) {
         const rows = await q(
           "SELECT column_type AS ct FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'id'",
           [t],
@@ -84,8 +95,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
         `SELECT table_name AS t, column_name AS c FROM information_schema.key_column_usage
          WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL`,
       );
-      // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1
-      expect(fks).toHaveLength(8);
+      // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1
+      expect(fks).toHaveLength(9);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics

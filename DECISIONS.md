@@ -73,3 +73,30 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
 - **Repositories hide soft-deleted rows** unless `{ includeDeleted: true }` is passed. They translate duplicate-key, missing-reference and in-use errors into `AppError` (generic messages, no values echoed). `UserRecord` carries `passwordHash` and is server-only; client-facing shapes will be defined in `shared/` when routes exist.
 - **Role mapping in `database/seed/access.json` is provisional** (flat organisation, D6a): Admin gets all 18 permissions; Project Manager and Accountant get the 13 non-admin ones; Viewer gets `project.view`, `expense.view`, `report.view`. Change the JSON and re-run the seed; seeding is additive and never revokes.
 - **Session and security defaults:** every connection runs in UTC with strict SQL mode, so MariaDB rejects over-long or invalid values rather than truncating them.
+
+## D15. Authentication and authorization choices (Chunk 03, review these)
+**Sessions**
+- Server-side sessions. The cookie holds a random 256-bit token; the database stores only its SHA-256, so a database leak does not expose live sessions. A new session is issued on every login (no fixation), and signing in again revokes the previous one.
+- Cookie: `HttpOnly`, `SameSite=Lax`, `Path=/`, and in production `Secure` with the `__Host-` name prefix.
+- Lifetime: **12 h absolute, 120 min idle** (sliding, refreshed at most once a minute). Both are env settings (`SESSION_ABSOLUTE_HOURS`, `SESSION_IDLE_MINUTES`). All time checks use the database clock.
+- Whether a user is enabled, deleted and which permissions they hold is read on **every request**, so disabling a user or changing a role takes effect immediately, at the cost of two small queries per request.
+
+**Login**
+- One generic answer (`401 INVALID_CREDENTIALS`) for wrong password, unknown email, disabled, deleted and locked accounts. One argon2 verification always runs, so timing does not reveal whether an email exists.
+- **Lockout: 5 consecutive failures lock the account for 15 min** (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES`). The counter is one atomic SQL statement, safe under parallel attempts. Only real, enabled, unlocked accounts accumulate failures. A lock that has expired restarts the count from zero. A successful login resets it. The lock does not reveal itself: a correct password during a lock gets the same 401.
+- **Rate limit: 30 login attempts per 15 min per IP** (`LOGIN_RATE_LIMIT`), answered `429` with `Retry-After`. It is in memory, so **per server process**; with several instances each keeps its own count. Account lockout is what protects one account across instances. Set `TRUST_PROXY=true` only behind a trusted reverse proxy, otherwise every user shares the proxy's IP.
+- Passwords: Argon2id, 19 MiB, 2 passes, 1 lane (OWASP minimum), cost stored inside each hash so it can be raised later.
+
+**CSRF**: every state-changing request from a signed-in user must carry `X-CSRF-Token` matching its session (returned by login and `/me`). Separately, any POST/PUT/PATCH/DELETE with an `Origin` header outside `CORS_ORIGINS` is refused before any work is done, which also covers login CSRF.
+
+**Deny by default**: a hook refuses to register any route that does not call `authenticate`, unless it is marked `config.public`. A route must also call `authorize(permission)` unless marked `config.authenticatedOnly`. A test pins the full public surface to exactly `GET /api/health` and `POST /api/auth/login`. All permission checks live in `auth/guards.ts`; tests fail if any other file calls `permissions.has`, names a system role, or reads role names.
+
+**Project access** (`authorizeProjectAccess`): **members only, no administrator bypass.** A project that does not exist, is deleted, or has a malformed id gets the same 403 as a non-member, so responses never reveal which projects exist. Chunk 06 must add the owner as a member when a project is created. *Decision for you:* should an Admin be able to open any project without being a member?
+
+**Audit**: `recordAudit(db, event, actor, entity, before, after)` is the only writer. It takes `db` so a service can pass its transaction and commit the audit row with the change. Event names must look like `entity.action`. Values under keys that look sensitive (`password`, `token`, `secret`, `hash`, `cookie`, `authorization`) are redacted before storage. Login events recorded: `auth.login`, `auth.login_failed` and `auth.account_locked` (known accounts only; attempts on unknown emails are not stored, so attacker-chosen text never reaches the table), `auth.logout`.
+
+**Known gaps (by design, for later chunks)**
+- **There is no way to create the first user yet.** User management is Chunk 04; until then an admin must be inserted by hand or by script.
+- No password rules (length, breach check) yet: they belong with user creation and password change in Chunk 04, along with revoking sessions on password change (`sessionsRepository.deleteAllForUser` is ready).
+- `sessions` has `created_at` and `last_seen_at` but no `updated_at`, consistent with D14.
+- Expired sessions are purged on each login rather than by a scheduled job.

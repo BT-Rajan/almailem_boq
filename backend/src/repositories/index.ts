@@ -3,5 +3,6 @@ export * from './audit-log';
 export * from './cost-heads';
 export * from './project-members';
 export * from './projects';
+export * from './sessions';
 export * from './users';
 export type { FindOptions } from './shared';

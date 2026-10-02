@@ -13,9 +13,13 @@ export const REDACTED_PATHS = [
 ];
 
 /** Structured JSON logging (pino, built into Fastify) with secret redaction. */
-export function loggerOptions(env: Env): NonNullable<FastifyServerOptions['logger']> {
+export function loggerOptions(
+  env: Env,
+  stream?: NodeJS.WritableStream,
+): NonNullable<FastifyServerOptions['logger']> {
   return {
     level: env.LOG_LEVEL,
     redact: { paths: REDACTED_PATHS, censor: '[redacted]' },
+    ...(stream && { stream }),
   };
 }
