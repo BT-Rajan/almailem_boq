@@ -291,3 +291,25 @@ Supersedes the "Not yet: nothing is blocked" note in D23, and settles the open p
   - **Cost-head page** marks held, rejected and cancelled entries, and offers Cancel request.
   - **Dashboard** counts pending approvals in the user's projects.
 - **Not built:** notifications (Chunk 11), multi-level chains, and hiding Cancel request from members other than the requester (the server refuses them with a clear message).
+
+## D30. Look and feel follows the Almailem roadmap UI (light theme only)
+The owner asked for the app to resemble `BT-Rajan/almailam-roadmap-ui`, in its light theme only. That app is Vue with Tailwind; ours stays React with plain CSS, so the design is carried over, not its code. Done so far: sign-in and dashboard, plus the app shell every page sits in.
+- **Supersedes parts of CLAUDE.md's UI RULES:**
+  - the page is the roadmap's cool grey (`#f3f5f9`), not `#F8F9FA`;
+  - cards get 12–16 px corners and soft slate shadows;
+  - the dashboard has a blue gradient greeting banner.
+- **The data rules stay:**
+  - Budget > Actual > Remaining > Used > Action wherever money appears;
+  - status dots only;
+  - dense tables;
+  - no charts.
+- **Taken from the roadmap UI:**
+  - its tokens: corporate blue `#1d4ed8`, slate text greys, hairline borders;
+  - Inter for text and Plus Jakarta Sans for headings and figures;
+  - a white sidebar with icons and an active item tinted blue with an edge bar, Administration grouped;
+  - a top bar with search and the user;
+  - a split-screen sign-in with a hero line;
+  - stat tiles with coloured top edges and icon badges.
+- **Fonts are self-hosted** (`@fontsource`, Latin subset only), because the CSP allows fonts from our own origin only. Icons come from `lucide-react`, the React build of the roadmap's icon set.
+- **The sidebar shows from 1280 px wide.** Narrower screens, iPads included, get a menu button and a drawer, so the money tables keep the full width the landscape iPad checks require.
+- **Not done yet:** the other pages (projects, BoQ, cost head, approvals, administration) take on the new colours, fonts and cards through the shared styles, but keep their own layouts.
