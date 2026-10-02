@@ -19,6 +19,14 @@ const NAV = [
 
 /** Map a location hash to the page to show and the nav entry to highlight. */
 function resolve(hash: string): { nav: string; page: ReactNode } {
+  const setup = /^#\/projects\/([0-9a-f-]{36})\/setup\/(boq|review)$/i.exec(hash);
+  if (setup)
+    return {
+      nav: '#/projects',
+      page: (
+        <CreateProjectPage projectId={setup[1] as string} step={setup[2] as 'boq' | 'review'} />
+      ),
+    };
   const project = /^#\/projects\/([0-9a-f-]{36})$/i.exec(hash);
   if (project)
     return { nav: '#/projects', page: <ProjectPage key={project[1]} id={project[1] as string} /> };

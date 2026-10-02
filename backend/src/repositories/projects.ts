@@ -93,6 +93,18 @@ export function projectsRepository(db: Db) {
       ]);
       return row ? map(row) : null;
     },
+    /**
+     * Row-lock a live project until the transaction ends; null if missing or deleted. Serialises
+     * changes that hang off the project (budgets) even when they have no rows of their own yet.
+     */
+    async lockById(id: string): Promise<ProjectRecord | null> {
+      const row = await selectOne(
+        db,
+        'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+        [id],
+      );
+      return row ? map(row) : null;
+    },
     /** True when the project exists and is not deleted. */
     async isLive(id: string): Promise<boolean> {
       const row = await selectOne(

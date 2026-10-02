@@ -304,3 +304,27 @@ hr {
   border-top: 1px solid var(--border);
   margin: 16px 0;
 }
+.table.money .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table tfoot th {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+.negative {
+  color: var(--status-approval);
+}
+input.amount {
+  width: 140px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+input.invalid {
+  border-color: var(--status-approval);
+}
+.actions {
+  margin-top: 12px;
+}

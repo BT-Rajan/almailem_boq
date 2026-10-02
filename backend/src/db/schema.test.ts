@@ -14,6 +14,7 @@ const ALL_TABLES = [
   'project_members',
   'cost_heads',
   'audit_log',
+  'project_estimates',
 ];
 
 describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
@@ -61,7 +62,14 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
     });
 
     it('every table has created_at; entity tables also have updated_at', async () => {
-      const entity = ['users', 'roles', 'permissions', 'projects', 'cost_heads'];
+      const entity = [
+        'users',
+        'roles',
+        'permissions',
+        'projects',
+        'cost_heads',
+        'project_estimates',
+      ];
       for (const t of ALL_TABLES) {
         const cols = await columnsOf(t);
         expect(cols, t).toContain('created_at');
@@ -95,8 +103,9 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
         `SELECT table_name AS t, column_name AS c FROM information_schema.key_column_usage
          WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL`,
       );
-      // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1
-      expect(fks).toHaveLength(9);
+      // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1,
+      // project_estimates 2
+      expect(fks).toHaveLength(11);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics
@@ -219,6 +228,66 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
           "INSERT INTO audit_log (event, entity_type, entity_id, after_data) VALUES ('e', 't', '1', 'not json')",
         ),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('project_estimates', () => {
+    const head = async (code: string) =>
+      String(
+        (await q("INSERT INTO cost_heads (code, name) VALUES (?, 'h') RETURNING id", [code]))[0]?.[
+          'id'
+        ],
+      );
+
+    it('one estimate per project and head; money is exact BIGINT and never negative', async () => {
+      const p = await project('EST-1', await user('est1@x.com'));
+      const h = await head('EH-1');
+      const big = '9007199254740991'; // largest safe integer, in fils
+      await q(
+        'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, ?)',
+        [p, h, big],
+      );
+      const rows = await q(
+        'SELECT CAST(amount_fils AS CHAR) AS a FROM project_estimates WHERE project_id = ?',
+        [p],
+      );
+      expect(rows[0]?.['a']).toBe(big);
+      await expect(
+        q(
+          'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, 1)',
+          [p, h],
+        ),
+      ).rejects.toThrow(/Duplicate/);
+      const h2 = await head('EH-2');
+      await expect(
+        q(
+          'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, -1)',
+          [p, h2],
+        ),
+      ).rejects.toThrow(/ck_project_estimates_amount/);
+    });
+
+    it('rejects unknown projects and heads, and a referenced head cannot be hard-deleted', async () => {
+      const p = await project('EST-2', await user('est2@x.com'));
+      const h = await head('EH-3');
+      const missing = '00000000-0000-1000-8000-000000000000';
+      await expect(
+        q(
+          'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, 1)',
+          [missing, h],
+        ),
+      ).rejects.toThrow(/foreign key/i);
+      await expect(
+        q(
+          'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, 1)',
+          [p, missing],
+        ),
+      ).rejects.toThrow(/foreign key/i);
+      await q(
+        'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils) VALUES (?, ?, 1)',
+        [p, h],
+      );
+      await expect(q('DELETE FROM cost_heads WHERE id = ?', [h])).rejects.toThrow(/foreign key/i);
     });
   });
 

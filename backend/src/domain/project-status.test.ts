@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { PROJECT_STATUSES } from '@boq/shared';
-import { INITIAL_PROJECT_STATUS, canTransition, nextStatuses } from './project-status';
+import {
+  INITIAL_PROJECT_STATUS,
+  allowsBudgetChanges,
+  canTransition,
+  nextStatuses,
+} from './project-status';
 
 describe('project status transitions', () => {
   it.each([
@@ -42,5 +47,17 @@ describe('project status transitions', () => {
   it('returns a copy, so callers cannot change the rules', () => {
     nextStatuses('active').push('planned');
     expect(nextStatuses('active')).not.toContain('planned');
+  });
+});
+
+describe('allowsBudgetChanges', () => {
+  it.each([
+    ['planned', true],
+    ['active', true],
+    ['on_hold', true],
+    ['completed', false],
+    ['cancelled', false],
+  ] as const)('%s -> %s', (status, ok) => {
+    expect(allowsBudgetChanges(status)).toBe(ok);
   });
 });

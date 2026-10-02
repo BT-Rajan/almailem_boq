@@ -1,6 +1,6 @@
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
-import { errorResponse } from '@boq/shared';
+import { errorResponse, MoneyError } from '@boq/shared';
 import { AppError } from './app-error';
 
 /** Maps every failure to the shared envelope. Unknown errors never leak internals. */
@@ -22,6 +22,14 @@ export function registerErrorHandling(app: FastifyInstance): void {
           ...(err.details !== undefined && { details: err.details }),
         }),
       );
+      return;
+    }
+
+    // An amount or total beyond the safe integer range. Never echo the value.
+    if (err instanceof MoneyError) {
+      void reply
+        .code(400)
+        .send(errorResponse({ code: 'AMOUNT_OUT_OF_RANGE', message: 'Amount is out of range' }));
       return;
     }
 

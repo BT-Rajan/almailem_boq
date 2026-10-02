@@ -13,7 +13,7 @@ almailem_boq/
       audit/               # recordAudit(): the only writer to audit_log, with secret redaction
       domain/
         project-status.ts  # allowed project status transitions - pure
-        metrics/           # budgetMetrics({budget, actual}) - pure, no I/O, no thresholds
+        metrics.ts         # budgetMetrics({budget, actual}), totalMetrics - pure, no I/O, no thresholds
         control/           # calculateBudgetStatus, projectedStatus - pure, owns thresholds
         kpi/               # Chunk 14, built on metrics + control
       db/                  # pool, migrator, seed loader, CLI, SQL helpers (DB tooling)

@@ -6,3 +6,4 @@ export * from './projects';
 export * from './sessions';
 export * from './users';
 export type { FindOptions } from './shared';
+export * from './estimates';

@@ -22,3 +22,8 @@ export function nextStatuses(from: ProjectStatus): ProjectStatus[] {
 export function canTransition(from: ProjectStatus, to: ProjectStatus): boolean {
   return TRANSITIONS[from].includes(to);
 }
+
+/** Budgets (estimates) can change until the project is completed or cancelled. */
+export function allowsBudgetChanges(status: ProjectStatus): boolean {
+  return status !== 'completed' && status !== 'cancelled';
+}

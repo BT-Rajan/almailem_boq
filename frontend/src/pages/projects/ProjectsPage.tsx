@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { listProjects } from '../../api/projects';
 import { useLoad } from '../../api/use-load';
 import { formatDate, statusLabel } from '../../components/format';
+import { navigate } from '../../components/navigate';
 import { ErrorText } from '../../components/SlideOver';
 
 const PAGE_SIZE = 50;
@@ -50,11 +51,7 @@ export function ProjectsPage() {
         </thead>
         <tbody>
           {data?.items.map((p) => (
-            <tr
-              key={p.id}
-              className="clickable"
-              onClick={() => (window.location.hash = `#/projects/${p.id}`)}
-            >
+            <tr key={p.id} className="clickable" onClick={() => navigate(`#/projects/${p.id}`)}>
               <td>
                 <a href={`#/projects/${p.id}`}>{p.code}</a>
               </td>

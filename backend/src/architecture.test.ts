@@ -132,3 +132,45 @@ describe('architecture: cost heads are data, never code', () => {
     expect(offenders.map((f) => relative(REPO_ROOT, f))).toEqual([]);
   });
 });
+
+describe('architecture: budget maths lives only in domain/metrics', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const METRICS = 'backend/src/domain/metrics.ts';
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f))
+    .map((f) => relative(REPO_ROOT, f))
+    .filter((f) => f !== METRICS);
+
+  const FORMULAS: [string, RegExp][] = [
+    [
+      'budget/actual arithmetic',
+      /\b[\w.]*(budget|actual|remaining|spend)\w*\s*[-+*/]\s*[\w.(]*(budget|actual|spend)/i,
+    ],
+    ['money subtraction', /\bsubFils\(/],
+    ['basis-point scaling', /\*\s*10_?000\b|\b10_?000n?\s*\*/],
+    ['percentage of a budget', /\/\s*\w*budget/i],
+  ];
+
+  it('the metrics module exists and is the one place', () => {
+    expect(readFileSync(join(REPO_ROOT, METRICS), 'utf8')).toMatch(/export function budgetMetrics/);
+  });
+
+  /** Code only: comments and import/export-from lines say "budget" without computing anything. */
+  const codeOf = (f: string) =>
+    readFileSync(join(REPO_ROOT, f), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+      .replace(/^\s*(import|export)\b.*\bfrom\s+['"].*$/gm, '');
+
+  it.each(FORMULAS)('no %s outside domain/metrics', (_label, pattern) => {
+    const offenders = sources.filter((f) => f !== 'shared/src/money.ts' && pattern.test(codeOf(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('the check bites: a formula in ordinary code is caught', () => {
+    const sample = 'const left = row.budget - row.actual; const pct = (actual * 10000) / budget;';
+    for (const [label, pattern] of FORMULAS.filter(([l]) => l !== 'money subtraction'))
+      expect(pattern.test(sample), label).toBe(true);
+  });
+});

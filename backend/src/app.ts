@@ -9,6 +9,7 @@ import { registerErrorHandling } from './errors/error-handler';
 import { loggerOptions } from './logging/logger';
 import { registerAdminCostHeadRoutes } from './routes/admin-cost-heads';
 import { registerAdminUserRoutes } from './routes/admin-users';
+import { registerEstimateRoutes } from './routes/estimates';
 import { registerHealthRoute } from './routes/health';
 import { registerProjectRoutes } from './routes/projects';
 
@@ -40,6 +41,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     registerAdminUserRoutes(app, { pool: deps.pool });
     registerAdminCostHeadRoutes(app, { pool: deps.pool });
     registerProjectRoutes(app, { pool: deps.pool });
+    registerEstimateRoutes(app, { pool: deps.pool });
   }
   registerHealthRoute(app);
 

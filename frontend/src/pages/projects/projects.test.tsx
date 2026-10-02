@@ -27,6 +27,8 @@ const project = {
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
+const zero = { budget: 0, actual: 0, remaining: 0, utilisationBp: 0 };
+const emptyBoq = { rows: [], total: zero, editable: true };
 const members = [
   { id: 'u1', name: 'Ada', email: 'ada@x.com', isOwner: true, removable: false },
   { id: 'u2', name: 'Bo', email: 'bo@x.com', isOwner: false, removable: true },
@@ -54,12 +56,14 @@ describe('Create project (step 1: details)', () => {
       'POST /api/projects': () => ({ status: 201, data: project }),
     });
     render(<CreateProjectPage />);
-    expect(screen.getByRole('list', { name: 'Steps' }).textContent).toBe('1. Details');
+    expect(screen.getByRole('list', { name: 'Steps' }).textContent).toBe(
+      '1. Details2. BoQ3. Review',
+    );
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'ALM-1' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tower' } });
     fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-01-31' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create project' }));
-    await waitFor(() => expect(window.location.hash).toBe(`#/projects/${ID}`));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
+    await waitFor(() => expect(window.location.hash).toBe(`#/projects/${ID}/setup/boq`));
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       code: 'ALM-1',
       name: 'Tower',
@@ -80,7 +84,7 @@ describe('Create project (step 1: details)', () => {
     render(<CreateProjectPage />);
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Project already exists');
   });
 });
@@ -89,6 +93,7 @@ describe('Project page', () => {
   it('offers exactly the status changes the server allows', async () => {
     const calls = mockApi({
       [`GET /api/projects/${ID}`]: () => ({ data: project }),
+      [`GET /api/projects/${ID}/boq`]: () => ({ data: emptyBoq }),
       [`POST /api/projects/${ID}/status`]: () => ({ data: { ...project, status: 'on_hold' } }),
     });
     render(<ProjectPage id={ID} />);
@@ -104,6 +109,7 @@ describe('Project page', () => {
   it('members tab: owner and administrators cannot be removed; others can', async () => {
     const calls = mockApi({
       [`GET /api/projects/${ID}`]: () => ({ data: project }),
+      [`GET /api/projects/${ID}/boq`]: () => ({ data: emptyBoq }),
       [`GET /api/projects/${ID}/members`]: () => ({ data: members }),
       [`DELETE /api/projects/${ID}/members/u2`]: () => ({ data: members.slice(0, 1) }),
       'GET /api/users/lookup': () => ({ data: [] }),
@@ -135,7 +141,7 @@ describe('validation messages', () => {
     render(<CreateProjectPage />);
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Invalid input: End date must be after the start date',
     );
