@@ -111,6 +111,7 @@ ok "node $(node -v), pnpm $(pnpm -v), pm2 $PM2_V"
 step "3/12 Code"
 if [ -e "$APP_DIR/.git" ]; then  # a directory, or a file in a git worktree
   cd "$APP_DIR"
+  BRANCH_GIVEN="${BRANCH:-}"
   # The current branch, once there are commits (a fresh 'git init' sits on an unborn 'master').
   git rev-parse -q --verify HEAD >/dev/null && BRANCH="${BRANCH:-$(git branch --show-current)}"
   BRANCH="${BRANCH:-main}"
@@ -126,6 +127,12 @@ if [ -e "$APP_DIR/.git" ]; then  # a directory, or a file in a git worktree
         warn "No 'origin' remote — adding $REPO_URL"
         git remote add origin "$REPO_URL"
       fi
+    fi
+    # A local-only branch (e.g. 'master' after 'git init' and a commit) is not what to deploy.
+    if [ -z "$BRANCH_GIVEN" ] && [ "$BRANCH" != main ] \
+      && ! git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null 2>&1; then
+      warn "Branch '$BRANCH' is not on $REMOTE — deploying 'main' instead (set BRANCH=... to choose)"
+      BRANCH=main
     fi
     if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
       warn "Local changes found — stashing them (recover with: git stash list)"
