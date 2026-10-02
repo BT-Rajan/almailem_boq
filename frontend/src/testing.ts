@@ -5,7 +5,7 @@ export type Call = { method: string; url: string; headers: Record<string, string
 type Handler = (call: Call) => {
   status?: number;
   data?: unknown;
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; details?: unknown };
 };
 
 export function mockApi(handlers: Record<string, Handler>) {

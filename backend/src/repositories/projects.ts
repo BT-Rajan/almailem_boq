@@ -4,6 +4,7 @@ import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
+  containsPattern,
   liveClause,
   str,
   strOrNull,
@@ -124,6 +125,45 @@ export function projectsRepository(db: Db) {
         [userId],
       );
       return rows.map(mapRef);
+    },
+    /**
+     * Live projects with the owner's name, by code. `memberUserId` limits the list to that user's
+     * projects; null means every project (the caller decides who may see everything).
+     */
+    async search(opts: {
+      memberUserId: string | null;
+      search?: string | undefined;
+      limit: number;
+      offset: number;
+    }): Promise<{ rows: (ProjectRecord & { ownerName: string })[]; total: number }> {
+      const where = ['p.deleted_at IS NULL'];
+      const params: unknown[] = [];
+      if (opts.memberUserId !== null) {
+        where.push(
+          'EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ?)',
+        );
+        params.push(opts.memberUserId);
+      }
+      if (opts.search) {
+        where.push('(p.code LIKE ? OR p.name LIKE ?)');
+        params.push(containsPattern(opts.search), containsPattern(opts.search));
+      }
+      const clause = where.join(' AND ');
+      const count = await selectOne(
+        db,
+        `SELECT COUNT(*) AS n FROM projects p WHERE ${clause}`,
+        params,
+      );
+      const rows = await selectRows(
+        db,
+        `SELECT p.*, u.name AS owner_name FROM projects p JOIN users u ON u.id = p.owner_user_id
+          WHERE ${clause} ORDER BY p.code LIMIT ? OFFSET ?`,
+        [...params, opts.limit, opts.offset],
+      );
+      return {
+        rows: rows.map((r) => ({ ...map(r), ownerName: str(r, 'owner_name') })),
+        total: Number(count?.['n'] ?? 0),
+      };
     },
     async update(id: string, patch: ProjectPatch): Promise<boolean> {
       const set = buildSet(patch, COLUMNS);

@@ -10,6 +10,7 @@ import { loggerOptions } from './logging/logger';
 import { registerAdminCostHeadRoutes } from './routes/admin-cost-heads';
 import { registerAdminUserRoutes } from './routes/admin-users';
 import { registerHealthRoute } from './routes/health';
+import { registerProjectRoutes } from './routes/projects';
 
 export type AppDeps = {
   /** Required for everything except health. Without it only the public health route exists. */
@@ -38,6 +39,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     });
     registerAdminUserRoutes(app, { pool: deps.pool });
     registerAdminCostHeadRoutes(app, { pool: deps.pool });
+    registerProjectRoutes(app, { pool: deps.pool });
   }
   registerHealthRoute(app);
 

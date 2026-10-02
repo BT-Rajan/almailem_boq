@@ -233,3 +233,74 @@ button:disabled {
 .table tr.inactive td {
   color: #6b7480;
 }
+.button-link {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+a {
+  color: var(--accent);
+}
+.btn-danger {
+  color: var(--status-approval);
+  border-color: var(--status-approval);
+}
+.narrow {
+  max-width: 560px;
+}
+.steps {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 0 12px;
+  padding: 0;
+  list-style: none;
+  color: #6b7480;
+}
+.steps .active {
+  color: var(--accent);
+  font-weight: 500;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+}
+.tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+.facts.wide {
+  grid-template-columns: 110px 1fr;
+}
+.prewrap {
+  white-space: pre-wrap;
+}
+.picker {
+  display: flex;
+  gap: 6px;
+}
+.picker input {
+  width: 140px;
+}
+.picker select {
+  flex: 1;
+  min-width: 0;
+}
+.add-member {
+  margin-top: 8px;
+}
+.row label {
+  flex: 1;
+}
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}

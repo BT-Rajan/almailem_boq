@@ -13,7 +13,7 @@ export const AUTHENTICATE_MARK = Symbol('boq.authenticate');
 export const AUTHORIZE_MARK = Symbol('boq.authorize');
 
 /** Holders count as a member of every project. */
-const ALL_PROJECTS_PERMISSION: PermissionCode = 'admin.projects.access';
+export const ALL_PROJECTS_PERMISSION: PermissionCode = 'admin.projects.access';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -37,6 +37,15 @@ function requireAuth(request: FastifyRequest): AuthContext {
 export const currentActor = (request: FastifyRequest): { userId: string } => ({
   userId: requireAuth(request).user.id,
 });
+
+/**
+ * Which projects may this user list? Everything for holders of the all-projects permission,
+ * otherwise only the projects they are a member of.
+ */
+export const projectListScope = (request: FastifyRequest): { memberUserId: string | null } => {
+  const ctx = requireAuth(request);
+  return { memberUserId: ctx.permissions.has(ALL_PROJECTS_PERMISSION) ? null : ctx.user.id };
+};
 
 export function createGuards(deps: { pool: DbPool; service: AuthService; config: AuthConfig }) {
   const { pool, service, config } = deps;

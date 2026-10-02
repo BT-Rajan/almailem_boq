@@ -13,6 +13,15 @@ export class ApiError extends Error {
   }
 }
 
+/** "Invalid input" alone is no help: append the field messages the server sends with it. */
+function messageOf(error: { message: string; details?: unknown }): string {
+  if (!Array.isArray(error.details)) return error.message;
+  const fields = error.details
+    .map((d: { message?: unknown }) => (typeof d?.message === 'string' ? d.message : null))
+    .filter((m): m is string => m !== null);
+  return fields.length ? `${error.message}: ${[...new Set(fields)].join('; ')}` : error.message;
+}
+
 let csrfToken: string | null = null;
 
 /** Set from the session info returned by login and /me; sent on every write. */
@@ -40,7 +49,7 @@ export async function api<T>(method: Method, path: string, body?: unknown): Prom
     // not JSON: fall through to a generic error
   }
   if (!envelope) throw new ApiError(res.status, 'BAD_RESPONSE', 'Unexpected response from server');
-  if (!envelope.ok) throw new ApiError(res.status, envelope.error.code, envelope.error.message);
+  if (!envelope.ok) throw new ApiError(res.status, envelope.error.code, messageOf(envelope.error));
   return envelope.data;
 }
 

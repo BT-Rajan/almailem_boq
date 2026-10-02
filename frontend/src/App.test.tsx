@@ -25,15 +25,16 @@ describe('App shell', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
   });
 
-  it('shows the administration pages to a signed-in user', async () => {
+  it('opens on the projects list, with the administration pages in the nav', async () => {
+    window.location.hash = '';
     mockApi({
       'GET /api/auth/me': () => ({ data: session }),
-      'GET /api/admin/users': () => ({ data: { items: [], total: 0, page: 1, pageSize: 50 } }),
+      'GET /api/projects': () => ({ data: { items: [], total: 0, page: 1, pageSize: 50 } }),
     });
     render(<App />);
     expect(await screen.findByText('Ada Admin')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Users' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Roles' })).toBeTruthy();
-    expect(await screen.findByText('No users found')).toBeTruthy();
+    for (const name of ['Projects', 'Users', 'Roles', 'Cost heads'])
+      expect(screen.getByRole('link', { name })).toBeTruthy();
+    expect(await screen.findByText('No projects found')).toBeTruthy();
   });
 });

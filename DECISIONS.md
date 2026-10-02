@@ -129,3 +129,17 @@ The draft stack named PostgreSQL by mistake. Everything targets MariaDB 10.11+ (
 - **Audit:** `cost_head.created` (after), `cost_head.updated` (before/after of the changed fields only; deactivation is `{active: false}`), `cost_head.reordered` (entity id `list`, before/after code order). No-ops write nothing.
 - **API:** `/api/admin/cost-heads` (GET, POST), `/api/admin/cost-heads/:id` (PATCH), `/api/admin/cost-heads/order` (PUT), all behind `admin.costheads.manage`. The list of active heads for budgets and expenses, readable by ordinary users, arrives with Chunk 07, the first thing that needs it.
 - **"No cost-head names in code"** is enforced by a test that checks every name in the seed file, plus the CSI MasterFormat division titles the workbook uses, against all frontend, backend and shared source.
+
+## D19. Project management choices (Chunk 06, review these)
+- **Statuses:** `planned` > `active` > `on_hold` / `completed` / `cancelled`. Allowed moves: planned > active or cancelled; active > on hold, completed or cancelled; on hold > active or cancelled. Completed and cancelled are final. Defined once in `backend/src/domain/project-status.ts`; the API sends each project's `nextStatuses`, so the UI never decides. Every project starts `planned`. Status has its own endpoint and audit event (`project.status_changed`).
+- **Dates:** optional; when both are set the end must be strictly after the start (one rule, `datesInOrder` in `shared`). On edit it is checked against the stored dates, not only the patch.
+- **Code** is the project's identity: unique regardless of case, and fixed after creation.
+- **Owner** defaults to the creator. The owner and the creator both become members, so the creator can open what they made. Changing the owner adds the new owner as a member. The owner cannot be removed from the members; change the owner first. Owners and new members must be enabled users.
+- **Members list** = stored members plus every enabled holder of `admin.projects.access`, from one repository query (D17). Administrators show as "Administrator" and cannot be removed there.
+- **Project list:** only the caller's projects, or all for holders of `admin.projects.access`. That decision lives in `auth/guards.ts` (`projectListScope`) with the other permission checks. Search on code and name, offset pagination, at most 100 per page; Chunk 13 replaces it with the shared query builder.
+- **Delete** is a soft delete behind a new Admin-only permission, `admin.projects.delete` (re-run `pnpm db:seed`). Afterwards the project gets the same 403 as any missing one, for everyone.
+- **Non-members** get 403 on every project route, with the same body as a project that does not exist (never 404), so ids cannot be probed.
+- **User lookup** (`GET /api/users/lookup`, behind `project.members.manage`) returns id, name and email of enabled users for the owner and member pickers, at most 20.
+- **Audit:** `project.created`, `project.updated` (changed fields only), `project.status_changed`, `project.deleted`, `project.member_added`, `project.member_removed`. No-ops write nothing.
+- **Create Project flow:** step 1 (Details) only. `CREATE_PROJECT_STEPS` in `frontend/src/pages/projects/CreateProjectPage.tsx` is the seam where Chunk 07 adds the BoQ and Review steps.
+- **UI:** validation errors now show the field message from the server ("Invalid input: End date must be after the start date") instead of only "Invalid input". Dates display as DD/MM/YYYY.

@@ -1,3 +1,4 @@
+import type { UserRef } from '@boq/shared';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
@@ -84,6 +85,17 @@ export function usersRepository(db: Db) {
         [...like, opts.limit, opts.offset],
       );
       return { rows: rows.map(map), total: Number(count?.['n'] ?? 0) };
+    },
+    /** Enabled, live users matching name or email, for pickers. Never returns secrets. */
+    async lookup(search: string | undefined, limit: number): Promise<UserRef[]> {
+      const filter = search ? ' AND (name LIKE ? OR email LIKE ?)' : '';
+      const rows = await selectRows(
+        db,
+        `SELECT id, name, email FROM users WHERE deleted_at IS NULL AND disabled = 0${filter}
+          ORDER BY name, email LIMIT ?`,
+        [...(search ? [containsPattern(search), containsPattern(search)] : []), limit],
+      );
+      return rows.map((r) => ({ id: str(r, 'id'), name: str(r, 'name'), email: str(r, 'email') }));
     },
     /** How many enabled, live users hold `permissionCode` through any role. */
     async countEnabledHolding(permissionCode: string): Promise<number> {
