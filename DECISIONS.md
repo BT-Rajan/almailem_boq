@@ -237,3 +237,6 @@ Findings, fixes and accepted risks are in HARDENING.md; deployment in DEPLOY.md;
 - **Two database accounts in production:** the app's (data only, so it cannot alter tables or the audit triggers) and an admin one for migrations, backups and restores.
 - **The app's CSP** is set by the web server and was verified against the production build.
 - **Not hardened, because not built:** approvals (10), notifications (11), reports and exports (14), Excel import (15), audit viewer (16). HARDENING.md marks each related check N/A; they must be done when those chunks land.
+
+## D27. Cost heads are entered in the app, in any number (confirmed)
+Supersedes the "32 heads, to be supplied" parts of D10 and D18. Admins create, edit, reorder and deactivate cost heads in Administration > Cost heads. There is no fixed count: 10, 32 or 50 all work, and nothing in the code assumes a number. The only limit is 500 heads, which the reorder screen and the seed file accept in one go. `database/seed/cost-heads.json` stays optional: it can preload a list, but an empty file is the normal starting point.
