@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fa
 import { CSRF_HEADER, type PermissionCode } from '@boq/shared';
 import type { DbPool } from '../db/pool';
 import { AppError } from '../errors/app-error';
-import { projectMembersRepository } from '../repositories';
+import { projectMembersRepository, projectsRepository } from '../repositories';
 import type { AuthService } from './auth-service';
 import type { AuthConfig } from './config';
 import { safeEqual } from './tokens';
@@ -12,11 +12,21 @@ import type { AuthContext } from './types';
 export const AUTHENTICATE_MARK = Symbol('boq.authenticate');
 export const AUTHORIZE_MARK = Symbol('boq.authorize');
 
+/** Holders count as a member of every project. */
+export const ALL_PROJECTS_PERMISSION: PermissionCode = 'admin.projects.access';
+
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const mark = <T extends object>(fn: T, symbol: symbol, value: unknown = true): T =>
   Object.defineProperty(fn, symbol, { value });
+
+/** The value a guard was marked with (a permission code, or "project:<param>"). */
+export function markValue(handler: unknown, symbol: symbol): unknown {
+  return typeof handler === 'function'
+    ? (handler as unknown as Record<symbol, unknown>)[symbol]
+    : undefined;
+}
 
 export function hasMark(handler: unknown, symbol: symbol): boolean {
   return (
@@ -29,6 +39,20 @@ function requireAuth(request: FastifyRequest): AuthContext {
   if (!request.auth) throw AppError.unauthenticated(); // a guard used without authenticate first
   return request.auth;
 }
+
+/** The signed-in user as an audit actor. For use in routes behind authenticate. */
+export const currentActor = (request: FastifyRequest): { userId: string } => ({
+  userId: requireAuth(request).user.id,
+});
+
+/**
+ * Which projects may this user list? Everything for holders of the all-projects permission,
+ * otherwise only the projects they are a member of.
+ */
+export const projectListScope = (request: FastifyRequest): { memberUserId: string | null } => {
+  const ctx = requireAuth(request);
+  return { memberUserId: ctx.permissions.has(ALL_PROJECTS_PERMISSION) ? null : ctx.user.id };
+};
 
 export function createGuards(deps: { pool: DbPool; service: AuthService; config: AuthConfig }) {
   const { pool, service, config } = deps;
@@ -64,8 +88,9 @@ export function createGuards(deps: { pool: DbPool; service: AuthService; config:
     );
 
   /**
-   * May this user touch this project? Members only. A project that does not exist, is deleted, or
-   * has a malformed id gets the same 403 as a non-member, so responses never reveal which projects exist.
+   * May this user touch this project? Members, and holders of admin.projects.access, who count as a
+   * member of every project (D17). A project that does not exist, is deleted, or has a malformed id
+   * gets the same 403 as a non-member, so responses never reveal which projects exist.
    */
   const authorizeProjectAccess = (param = 'projectId'): onRequestAsyncHookHandler =>
     mark(
@@ -75,7 +100,9 @@ export function createGuards(deps: { pool: DbPool; service: AuthService; config:
         const allowed =
           typeof id === 'string' &&
           UUID.test(id) &&
-          (await projectMembersRepository(pool).hasAccess(id, ctx.user.id));
+          (ctx.permissions.has(ALL_PROJECTS_PERMISSION)
+            ? await projectsRepository(pool).isLive(id)
+            : await projectMembersRepository(pool).hasAccess(id, ctx.user.id));
         if (!allowed) throw AppError.forbidden();
       },
       AUTHORIZE_MARK,

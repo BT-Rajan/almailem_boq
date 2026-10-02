@@ -13,7 +13,8 @@ export type AuthConfig = {
 };
 
 export function authConfig(env: Env): AuthConfig {
-  const secure = env.NODE_ENV === 'production';
+  const secure =
+    env.COOKIE_SECURE === 'auto' ? env.NODE_ENV === 'production' : env.COOKIE_SECURE === 'true';
   return {
     idleSeconds: env.SESSION_IDLE_MINUTES * 60,
     absoluteSeconds: env.SESSION_ABSOLUTE_HOURS * 3600,

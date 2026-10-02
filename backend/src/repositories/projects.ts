@@ -1,6 +1,8 @@
+import type { PROJECT_SORTS, ProjectRef } from '@boq/shared';
+import { memberScope, runList, type ListInput, type ListSpec } from '../query/list';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
-import { exec, selectOne, type Row } from '../db/sql';
+import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
   liveClause,
@@ -35,6 +37,8 @@ export type NewProject = {
 };
 export type ProjectPatch = Partial<Omit<NewProject, 'code'>>;
 
+type ProjectSort = (typeof PROJECT_SORTS)[number];
+
 const map = (r: Row): ProjectRecord => ({
   id: str(r, 'id'),
   code: str(r, 'code'),
@@ -48,6 +52,29 @@ const map = (r: Row): ProjectRecord => ({
   createdAt: toDate(r['created_at']),
   updatedAt: toDate(r['updated_at']),
 });
+
+const mapRef = (r: Row): ProjectRef => ({
+  id: str(r, 'id'),
+  code: str(r, 'code'),
+  name: str(r, 'name'),
+});
+
+const PROJECT_LIST: ListSpec<ProjectSort, 'status'> = {
+  select: 'SELECT p.*, u.name AS owner_name',
+  from: 'FROM projects p JOIN users u ON u.id = p.owner_user_id',
+  where: ['p.deleted_at IS NULL'],
+  search: ['p.code', 'p.name'],
+  sorts: {
+    code: 'p.code',
+    name: 'p.name',
+    status: 'p.status',
+    start: 'p.start_date',
+    end: 'p.end_date',
+  },
+  defaultSort: { key: 'code', dir: 'asc' },
+  tiebreaker: 'p.id',
+  filters: { status: 'p.status' },
+};
 
 const COLUMNS = {
   name: 'name',
@@ -85,11 +112,63 @@ export function projectsRepository(db: Db) {
       ]);
       return row ? map(row) : null;
     },
+    /**
+     * Row-lock a live project until the transaction ends; null if missing or deleted. Serialises
+     * changes that hang off the project (budgets) even when they have no rows of their own yet.
+     */
+    async lockById(id: string): Promise<ProjectRecord | null> {
+      const row = await selectOne(
+        db,
+        'SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+        [id],
+      );
+      return row ? map(row) : null;
+    },
+    /** True when the project exists and is not deleted. */
+    async isLive(id: string): Promise<boolean> {
+      const row = await selectOne(
+        db,
+        'SELECT 1 AS found FROM projects WHERE id = ? AND deleted_at IS NULL',
+        [id],
+      );
+      return row !== null;
+    },
     async findByCode(code: string, opts?: FindOptions): Promise<ProjectRecord | null> {
       const row = await selectOne(db, `SELECT * FROM projects WHERE code = ?${liveClause(opts)}`, [
         code,
       ]);
       return row ? map(row) : null;
+    },
+    /** Live projects, by code. For pickers; the full project list arrives with project management. */
+    async listRefs(): Promise<ProjectRef[]> {
+      const rows = await selectRows(
+        db,
+        'SELECT id, code, name FROM projects WHERE deleted_at IS NULL ORDER BY code',
+      );
+      return rows.map(mapRef);
+    },
+    /** Live projects the user is a member of, by code. */
+    async listRefsForMember(userId: string): Promise<ProjectRef[]> {
+      const rows = await selectRows(
+        db,
+        `SELECT p.id, p.code, p.name FROM projects p JOIN project_members m ON m.project_id = p.id
+          WHERE m.user_id = ? AND p.deleted_at IS NULL ORDER BY p.code`,
+        [userId],
+      );
+      return rows.map(mapRef);
+    },
+    /** Live projects with the owner's name, through the shared list builder, limited to `memberUserId`'s. */
+    async list(
+      memberUserId: string | null,
+      input: ListInput<ProjectSort, 'status'>,
+    ): Promise<{ rows: (ProjectRecord & { ownerName: string })[]; total: number }> {
+      const { rows, total } = await runList(
+        db,
+        PROJECT_LIST,
+        input,
+        memberScope('p.id', memberUserId),
+      );
+      return { rows: rows.map((r) => ({ ...map(r), ownerName: str(r, 'owner_name') })), total };
     },
     async update(id: string, patch: ProjectPatch): Promise<boolean> {
       const set = buildSet(patch, COLUMNS);

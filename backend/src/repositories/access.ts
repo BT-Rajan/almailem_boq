@@ -1,7 +1,8 @@
-import { guarded } from '../db/errors';
+import { guarded, insertIfMissing } from '../db/errors';
 import type { Db } from '../db/pool';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
-import { str, strOrNull, toBool, toDate, type Timestamps } from './shared';
+import type { RoleRef } from '@boq/shared';
+import { placeholders, str, strOrNull, toBool, toDate, type Timestamps } from './shared';
 
 export type RoleRecord = Timestamps & {
   id: string;
@@ -33,6 +34,10 @@ const mapPermission = (r: Row): PermissionRecord => ({
 
 export function rolesRepository(db: Db) {
   return {
+    async findById(id: string): Promise<RoleRecord | null> {
+      const row = await selectOne(db, 'SELECT * FROM roles WHERE id = ?', [id]);
+      return row ? mapRole(row) : null;
+    },
     async findByName(name: string): Promise<RoleRecord | null> {
       const row = await selectOne(db, 'SELECT * FROM roles WHERE name = ?', [name]);
       return row ? mapRole(row) : null;
@@ -63,6 +68,13 @@ export function permissionsRepository(db: Db) {
     async findByCode(code: string): Promise<PermissionRecord | null> {
       const row = await selectOne(db, 'SELECT * FROM permissions WHERE code = ?', [code]);
       return row ? mapPermission(row) : null;
+    },
+    /**
+     * Row-lock one permission until the transaction ends. Used as a mutex: every change that could
+     * take the permission away from its last holder locks it first, so such changes run one at a time.
+     */
+    async lockByCode(code: string): Promise<void> {
+      await selectOne(db, 'SELECT id FROM permissions WHERE code = ? FOR UPDATE', [code]);
     },
     async list(): Promise<PermissionRecord[]> {
       return (await selectRows(db, 'SELECT * FROM permissions ORDER BY code')).map(mapPermission);
@@ -118,6 +130,20 @@ export function rolePermissionsRepository(db: Db) {
       );
       return res.affectedRows > 0;
     },
+    /** Permission codes of every role, keyed by role id. */
+    async listCodesByRole(): Promise<Map<string, string[]>> {
+      const rows = await selectRows(
+        db,
+        `SELECT rp.role_id, p.code FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id
+         ORDER BY p.code`,
+      );
+      const byRole = new Map<string, string[]>();
+      for (const r of rows) {
+        const id = str(r, 'role_id');
+        byRole.set(id, [...(byRole.get(id) ?? []), str(r, 'code')]);
+      }
+      return byRole;
+    },
     async listPermissionCodes(roleId: string): Promise<string[]> {
       const rows = await selectRows(
         db,
@@ -137,12 +163,34 @@ export function userRolesRepository(db: Db) {
         exec(db, 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, roleId]),
       );
     },
+    /** Idempotent assign. True when the role was newly assigned, false when the user already had it. */
+    async assignIfMissing(userId: string, roleId: string): Promise<boolean> {
+      return insertIfMissing('User role', () =>
+        exec(db, 'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, roleId]),
+      );
+    },
     async remove(userId: string, roleId: string): Promise<boolean> {
       const res = await exec(db, 'DELETE FROM user_roles WHERE user_id = ? AND role_id = ?', [
         userId,
         roleId,
       ]);
       return res.affectedRows > 0;
+    },
+    /** Roles (id and name) held by each of the given users, keyed by user id. */
+    async listForUsers(userIds: readonly string[]): Promise<Map<string, RoleRef[]>> {
+      const byUser = new Map<string, RoleRef[]>();
+      if (!userIds.length) return byUser;
+      const rows = await selectRows(
+        db,
+        `SELECT ur.user_id, r.id, r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id IN (${placeholders(userIds.length)}) ORDER BY r.name`,
+        userIds,
+      );
+      for (const r of rows) {
+        const id = str(r, 'user_id');
+        byUser.set(id, [...(byUser.get(id) ?? []), { id: str(r, 'id'), name: str(r, 'name') }]);
+      }
+      return byUser;
     },
     async listRoleNames(userId: string): Promise<string[]> {
       const rows = await selectRows(

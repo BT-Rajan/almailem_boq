@@ -45,3 +45,541 @@ body {
   flex: 1;
   padding: 16px;
 }
+h1 {
+  font-size: 16px;
+  margin: 0;
+}
+h2 {
+  font-size: 15px;
+  margin: 0;
+}
+h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-link {
+  border: none;
+  background: none;
+  color: var(--accent);
+}
+.spacer {
+  flex: 1;
+}
+.muted {
+  color: #6b7480;
+}
+.error {
+  color: var(--status-approval);
+  margin: 6px 0;
+}
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+}
+.nav a {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+.nav a.active {
+  background: var(--bg);
+  color: var(--accent);
+}
+.shell-header {
+  gap: 12px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.toolbar,
+.pager,
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar {
+  margin-bottom: 8px;
+}
+.pager {
+  margin-top: 8px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.table th {
+  font-weight: 500;
+  color: #6b7480;
+  font-size: 12px;
+}
+.table .num {
+  text-align: right;
+}
+.table tr.clickable {
+  cursor: pointer;
+}
+.table tr.clickable:hover {
+  background: var(--bg);
+}
+.perms {
+  font-size: 12px;
+  color: #4a5360;
+}
+.tag {
+  font-size: 12px;
+}
+.tag-disabled {
+  color: #6b7480;
+}
+.tag-locked {
+  color: var(--status-warning);
+}
+.login {
+  max-width: 320px;
+  margin: 48px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form label,
+.login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 6px 8px;
+  margin: 0;
+}
+.facts dt {
+  color: #6b7480;
+}
+.facts dd {
+  margin: 0;
+}
+.slideover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 41, 51, 0.2);
+  display: flex;
+  justify-content: flex-end;
+}
+.slideover {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.slideover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.slideover-body {
+  padding: 12px;
+  overflow-y: auto;
+}
+.table tr.inactive td {
+  color: #6b7480;
+}
+.button-link {
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+a {
+  color: var(--accent);
+}
+.btn-danger {
+  color: var(--status-approval);
+  border-color: var(--status-approval);
+}
+.narrow {
+  max-width: 560px;
+}
+.steps {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 0 12px;
+  padding: 0;
+  list-style: none;
+  color: #6b7480;
+}
+.steps .active {
+  color: var(--accent);
+  font-weight: 500;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+}
+.tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+.facts.wide {
+  grid-template-columns: 110px 1fr;
+}
+.prewrap {
+  white-space: pre-wrap;
+}
+.picker {
+  display: flex;
+  gap: 6px;
+}
+.picker input {
+  width: 140px;
+}
+.picker select {
+  flex: 1;
+  min-width: 0;
+}
+.add-member {
+  margin-top: 8px;
+}
+.row label {
+  flex: 1;
+}
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.table.money .num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table tfoot th {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+.negative {
+  color: var(--status-approval);
+}
+input.amount {
+  width: 140px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+input.invalid {
+  border-color: var(--status-approval);
+}
+.actions {
+  margin-top: 12px;
+}
+.figures {
+  display: flex;
+  gap: 32px;
+  margin: 4px 0 12px;
+}
+.figures dt {
+  font-size: 12px;
+  color: #6b7480;
+}
+.figures dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.boq-actions {
+  margin-bottom: 6px;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-normal .dot {
+  background: var(--status-normal);
+}
+.status-warning .dot {
+  background: var(--status-warning);
+}
+.status-approval_required .dot {
+  background: var(--status-approval);
+}
+.preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.preview-warning {
+  border-color: var(--status-warning);
+}
+.preview-approval_required {
+  border-color: var(--status-approval);
+}
+label.inline {
+  display: inline;
+}
+button.sort {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.global-search {
+  position: relative;
+}
+.global-search input {
+  width: 260px;
+}
+.search-results {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 0;
+  z-index: 10;
+}
+.search-results p {
+  margin: 4px 10px;
+}
+.search-title {
+  font-size: 11px;
+  color: #6b7480;
+  text-transform: uppercase;
+  padding: 6px 10px 2px;
+}
+.search-item {
+  padding: 3px 10px;
+  font-size: 13px;
+}
+.search-item a {
+  text-decoration: none;
+}
+
+/* ---------- Layout at every size: nothing scrolls the page sideways ---------- */
+.shell-header {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 44px;
+  padding: 4px 16px;
+  row-gap: 4px;
+}
+.nav {
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.global-search input {
+  width: min(260px, 40vw);
+}
+.search-results {
+  width: min(420px, 92vw);
+}
+.toolbar {
+  flex-wrap: wrap;
+}
+.figures {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+/* Long text in money tables is cut with an ellipsis (full text on hover) so the figures and the
+   Action column stay in view. */
+.table.money td.name {
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Overlays sit above everything on the page, including sticky table cells. */
+.slideover-backdrop {
+  z-index: 20;
+}
+/* Money tables keep one line per row and scroll sideways rather than squeeze. */
+.table.money th,
+.table.money td {
+  white-space: nowrap;
+}
+/* Wide tables scroll inside their panel, with the first column kept in view. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.table-scroll .table th:first-child,
+.table-scroll .table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+.table-scroll .table tr.clickable:hover td:first-child {
+  background: var(--bg);
+}
+.bill {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-end;
+}
+/* The camera button is for touch devices; a desktop picks files the usual way. */
+.bill .camera {
+  display: none;
+}
+
+/* ---------- Touch devices (iPad): 44 px targets, bottom sheets, thumb-reach actions ---------- */
+@media (pointer: coarse) {
+  :root {
+    font-size: 15px;
+  }
+  button,
+  input,
+  select,
+  textarea,
+  a.button-link {
+    min-height: 44px;
+  }
+  button,
+  a.button-link {
+    min-width: 44px;
+    padding: 0 12px;
+  }
+  .btn-link {
+    min-height: 44px;
+  }
+  input[type='checkbox'] {
+    min-height: 0;
+    width: 22px;
+    height: 22px;
+  }
+  label.check {
+    min-height: 44px;
+    align-items: center;
+  }
+  .nav a,
+  .table a,
+  .toolbar a,
+  .actions a,
+  .search-item a,
+  .pager a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .table th,
+  .table td {
+    height: 44px;
+    padding: 4px 10px;
+  }
+  button.sort {
+    min-height: 44px;
+    padding: 0;
+  }
+  input.amount {
+    width: 160px;
+  }
+  .bill .camera {
+    display: inline-flex;
+    flex-direction: column;
+  }
+  /* Bottom sheet: Add Expense and other quick actions rise from the bottom, full width. */
+  .slideover-backdrop:has(.sheet) {
+    align-items: flex-end;
+  }
+  .slideover.sheet {
+    width: 100%;
+    height: auto;
+    max-height: 88vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+  }
+  /* The sheet's main button stays at the bottom, under the thumb. */
+  .sheet .form > button[type='submit'] {
+    position: sticky;
+    bottom: 0;
+    margin-bottom: env(safe-area-inset-bottom, 0);
+  }
+  /* The page's main action sits in the bottom-right corner, within thumb reach. */
+  .primary-action {
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    min-height: 52px;
+    padding: 0 20px;
+    border-radius: 26px;
+  }
+  .shell-main {
+    padding-bottom: 88px; /* room for the corner action */
+  }
+}

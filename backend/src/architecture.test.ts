@@ -14,11 +14,13 @@ function files(dir: string): string[] {
   );
 }
 
-describe('architecture: SQL lives only in repositories/ and db/', () => {
+describe('architecture: SQL lives only in repositories/, db/ and the list builder (query/)', () => {
   const outside = files(SRC)
     .map((f) => relative(SRC, f))
     .filter((f) => f.endsWith('.ts') && !isTestCode(f))
-    .filter((f) => !f.startsWith('repositories/') && !f.startsWith('db/'));
+    .filter(
+      (f) => !f.startsWith('repositories/') && !f.startsWith('db/') && !f.startsWith('query/'),
+    );
 
   it('has application code to check', () => {
     expect(outside.length).toBeGreaterThan(0);
@@ -51,15 +53,24 @@ describe('architecture: access control goes through permissions only', () => {
     expect(offenders.map(rel)).toEqual([]);
   });
 
+  // User administration lists and assigns roles (by id) and is the one exception.
+  const ROLE_ADMIN_SERVICE = 'services/user-admin.ts';
+
   it('role names are only readable inside the repositories, so no route can branch on them', () => {
     const offenders = appFiles
       .filter(
         (f) => !relative(SRC, f).startsWith('repositories/') && !relative(SRC, f).startsWith('db/'),
       )
+      .filter((f) => relative(SRC, f) !== ROLE_ADMIN_SERVICE)
       .filter((f) =>
         /listRoleNames|userRolesRepository|rolesRepository/.test(readFileSync(f, 'utf8')),
       );
     expect(offenders.map(rel)).toEqual([]);
+  });
+
+  it('the user-admin service never compares a role name', () => {
+    const text = readFileSync(join(SRC, ROLE_ADMIN_SERVICE), 'utf8');
+    expect(text).not.toMatch(/\.name\s*[!=]==|[!=]==\s*\w+\.name\b|roleName|findByName/);
   });
 
   it('only auth/guards.ts decides who may do what (no inline permission checks elsewhere)', () => {
@@ -72,6 +83,142 @@ describe('architecture: access control goes through permissions only', () => {
   it('routes never read request.auth directly to make decisions; they use guards', () => {
     const routeFiles = appFiles.filter((f) => relative(SRC, f).startsWith('routes/'));
     for (const f of routeFiles)
-      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\.permissions|\.roles/);
+      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\.auth\b|\.permissions\b/);
+  });
+});
+
+describe('architecture: cost heads are data, never code', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f));
+
+  // Names from the seed file, plus the CSI MasterFormat division titles the workbook is built on,
+  // so the check bites even before the real list is supplied.
+  const seeded = (
+    JSON.parse(readFileSync(join(REPO_ROOT, 'database/seed/cost-heads.json'), 'utf8')) as {
+      costHeads: { name: string }[];
+    }
+  ).costHeads.map((h) => h.name);
+  const CSI_DIVISIONS = [
+    'General Requirements',
+    'Existing Conditions',
+    'Concrete',
+    'Masonry',
+    'Metals',
+    'Wood, Plastics',
+    'Thermal and Moisture',
+    'Openings',
+    'Finishes',
+    'Specialties',
+    'Equipment',
+    'Furnishings',
+    'Special Construction',
+    'Conveying',
+    'Fire Suppression',
+    'Plumbing',
+    'HVAC',
+    'Integrated Automation',
+    'Electrical',
+    'Communications',
+    'Electronic Safety',
+    'Earthwork',
+    'Exterior Improvements',
+    'Utilities',
+  ];
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  it.each([...new Set([...seeded, ...CSI_DIVISIONS])])('no source file names "%s"', (name) => {
+    const pattern = new RegExp(`\\b${escape(name)}\\b`, 'i');
+    const offenders = sources.filter((f) => pattern.test(readFileSync(f, 'utf8')));
+    expect(offenders.map((f) => relative(REPO_ROOT, f))).toEqual([]);
+  });
+});
+
+describe('architecture: budget maths lives only in domain/metrics', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const METRICS = 'backend/src/domain/metrics.ts';
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f))
+    .map((f) => relative(REPO_ROOT, f))
+    .filter((f) => f !== METRICS);
+
+  const FORMULAS: [string, RegExp][] = [
+    [
+      'budget/actual arithmetic',
+      /\b[\w.]*(budget|actual|remaining|spend)\w*\s*[-+*/]\s*[\w.(]*(budget|actual|spend)/i,
+    ],
+    ['money subtraction', /\bsubFils\(/],
+    ['basis-point scaling', /\*\s*10_?000\b|\b10_?000n?\s*\*/],
+    ['percentage of a budget', /\/\s*\w*budget/i],
+  ];
+
+  it('the metrics module exists and is the one place', () => {
+    expect(readFileSync(join(REPO_ROOT, METRICS), 'utf8')).toMatch(/export function budgetMetrics/);
+  });
+
+  /** Code only: comments and import/export-from lines say "budget" without computing anything. */
+  const codeOf = (f: string) =>
+    readFileSync(join(REPO_ROOT, f), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+      .replace(/^\s*(import|export)\b.*\bfrom\s+['"].*$/gm, '');
+
+  it.each(FORMULAS)('no %s outside domain/metrics', (_label, pattern) => {
+    const offenders = sources.filter((f) => f !== 'shared/src/money.ts' && pattern.test(codeOf(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('the check bites: a formula in ordinary code is caught', () => {
+    const sample = 'const left = row.budget - row.actual; const pct = (actual * 10000) / budget;';
+    for (const [label, pattern] of FORMULAS.filter(([l]) => l !== 'money subtraction'))
+      expect(pattern.test(sample), label).toBe(true);
+  });
+});
+
+describe('architecture: thresholds are data, compared only in domain/control', () => {
+  const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const sources = [SRC, join(REPO_ROOT, 'shared/src'), join(REPO_ROOT, 'frontend/src')]
+    .flatMap((dir) => files(dir))
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !isTestCode(f))
+    .map((f) => relative(REPO_ROOT, f));
+  const text = (f: string) => readFileSync(join(REPO_ROOT, f), 'utf8');
+
+  it('the numbers 80 and 100 (as thresholds) appear only in config (the migration) and tests', () => {
+    // 80%: as a percentage, a ratio or basis points
+    const eighty = /\b80\b|\b0\.8\b|\b8_?000\b/;
+    expect(sources.filter((f) => eighty.test(text(f)))).toEqual([]);
+    // 100% in basis points: only the unit definition, plus an unrelated rate-limit cap
+    const hundredBp = /\b10_?000n?\b/;
+    expect(sources.filter((f) => hundredBp.test(text(f)))).toEqual([
+      'backend/src/config/env.ts', // LOGIN_RATE_LIMIT maximum, not a budget threshold
+      'shared/src/budget.ts', // BP_PER_WHOLE: the unit of utilisation
+    ]);
+    const migration = readFileSync(
+      join(REPO_ROOT, 'database/migrations/0010_budget_thresholds.up.sql'),
+      'utf8',
+    );
+    expect(migration).toMatch(/VALUES \(1, 8000, 10000\)/);
+  });
+
+  it('only domain/control compares utilisation with thresholds', () => {
+    const comparison =
+      /(warningBp|approvalBp|utilisationBp)\s*[<>]=?|[<>]=?\s*[\w.]*(warningBp|approvalBp|utilisationBp)/;
+    const allowed = [
+      'backend/src/domain/control.ts',
+      'shared/src/control.ts', // the settings schema checks warning < approval (config consistency)
+    ];
+    const offenders = sources.filter((f) => !allowed.includes(f) && comparison.test(text(f)));
+    expect(offenders).toEqual([]);
+    expect(text('shared/src/control.ts')).not.toMatch(/utilisationBp\s*[<>]/);
+  });
+
+  it('statuses are decided only in domain/control (others only pass them on or display them)', () => {
+    const decides = /return\s+['"](NORMAL|WARNING|APPROVAL_REQUIRED)['"]/;
+    const offenders = sources.filter(
+      (f) => f !== 'backend/src/domain/control.ts' && decides.test(text(f)),
+    );
+    expect(offenders).toEqual([]);
   });
 });

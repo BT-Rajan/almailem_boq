@@ -11,15 +11,19 @@ almailem_boq/
       auth/                # config, passwords (argon2id), tokens, rate-limit, auth-service (login/resolve/logout),
                            # guards (authenticate, authorize, authorizeProjectAccess), routes, plugin (deny-by-default)
       audit/               # recordAudit(): the only writer to audit_log, with secret redaction
+      http/                # security headers on every response
+      attachments/         # bill files: type sniffing, random-name storage outside any served dir
       domain/
-        metrics/           # budgetMetrics({budget, actual}) - pure, no I/O, no thresholds
-        control/           # calculateBudgetStatus, projectedStatus - pure, owns thresholds
+        project-status.ts  # allowed project status transitions - pure
+        metrics.ts         # budgetMetrics({budget, actual}), totalMetrics - pure, no I/O, no thresholds
+        control.ts         # calculateBudgetStatus, projectedStatus - pure, the only threshold comparisons
         kpi/               # Chunk 14, built on metrics + control
       db/                  # pool, migrator, seed loader, CLI, SQL helpers (DB tooling)
       repositories/        # the ONLY place SQL lives (with db/); one thin repository per table
-      services/            # orchestration, transactions
+      services/            # orchestration, transactions (user-admin: users, roles, project access)
+      cli/                 # operator tools (bootstrap-admin)
       routes/              # thin HTTP layer: validate > authorize > service
-      query/               # shared search/filter/sort/pagination builder (Chunk 13)
+      query/               # runList: the one search/filter/sort/page builder; memberScope
       import/              # parser > validator > mapper > committer (isolated, Chunk 15)
       notify/              # notify() single entry point
   frontend/

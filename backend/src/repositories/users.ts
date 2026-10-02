@@ -1,6 +1,8 @@
+import type { USER_SORTS, UserRef } from '@boq/shared';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
-import { exec, selectOne, type Row } from '../db/sql';
+import { exec, selectOne, selectRows, type Row } from '../db/sql';
+import { containsPattern, runList, type ListInput, type ListSpec } from '../query/list';
 import {
   buildSet,
   liveClause,
@@ -28,6 +30,8 @@ export type UserRecord = Timestamps & {
 export type NewUser = { email: string; name: string; passwordHash: string };
 export type UserPatch = { name?: string; passwordHash?: string; disabled?: boolean };
 
+type UserSort = (typeof USER_SORTS)[number];
+
 const map = (r: Row): UserRecord => ({
   id: str(r, 'id'),
   email: str(r, 'email'),
@@ -48,6 +52,18 @@ const SELECT_USER =
 
 const COLUMNS = { name: 'name', passwordHash: 'password_hash', disabled: 'disabled' };
 
+const USER_LIST: ListSpec<UserSort, never> = {
+  select:
+    'SELECT *, (locked_until IS NOT NULL AND locked_until > CURRENT_TIMESTAMP(3)) AS is_locked',
+  from: 'FROM users',
+  where: ['deleted_at IS NULL'],
+  search: ['name', 'email'],
+  sorts: { created: 'created_at', name: 'name', email: 'email' },
+  defaultSort: { key: 'created', dir: 'desc' },
+  tiebreaker: 'id',
+  filters: {},
+};
+
 export function usersRepository(db: Db) {
   return {
     async create(input: NewUser): Promise<UserRecord> {
@@ -63,6 +79,36 @@ export function usersRepository(db: Db) {
     async findById(id: string, opts?: FindOptions): Promise<UserRecord | null> {
       const row = await selectOne(db, `${SELECT_USER} WHERE id = ?${liveClause(opts)}`, [id]);
       return row ? map(row) : null;
+    },
+    /** Live users (disabled included), searchable and sortable through the shared list builder. */
+    async list(input: ListInput<UserSort, never>): Promise<{ rows: UserRecord[]; total: number }> {
+      const { rows, total } = await runList(db, USER_LIST, input);
+      return { rows: rows.map(map), total };
+    },
+    /** Enabled, live users matching name or email, for pickers. Never returns secrets. */
+    async lookup(search: string | undefined, limit: number): Promise<UserRef[]> {
+      const filter = search ? ' AND (name LIKE ? OR email LIKE ?)' : '';
+      const rows = await selectRows(
+        db,
+        `SELECT id, name, email FROM users WHERE deleted_at IS NULL AND disabled = 0${filter}
+          ORDER BY name, email LIMIT ?`,
+        [...(search ? [containsPattern(search), containsPattern(search)] : []), limit],
+      );
+      return rows.map((r) => ({ id: str(r, 'id'), name: str(r, 'name'), email: str(r, 'email') }));
+    },
+    /** How many enabled, live users hold `permissionCode` through any role. */
+    async countEnabledHolding(permissionCode: string): Promise<number> {
+      const row = await selectOne(
+        db,
+        `SELECT COUNT(DISTINCT u.id) AS n
+           FROM users u
+           JOIN user_roles ur ON ur.user_id = u.id
+           JOIN role_permissions rp ON rp.role_id = ur.role_id
+           JOIN permissions p ON p.id = rp.permission_id
+          WHERE p.code = ? AND u.disabled = 0 AND u.deleted_at IS NULL`,
+        [permissionCode],
+      );
+      return Number(row?.['n'] ?? 0);
     },
     async findByEmail(email: string, opts?: FindOptions): Promise<UserRecord | null> {
       const row = await selectOne(db, `${SELECT_USER} WHERE email = ?${liveClause(opts)}`, [email]);

@@ -8,12 +8,18 @@
     { "code": "admin.costheads.manage", "description": "Manage the cost head master list" },
     { "code": "admin.approvalrules.manage", "description": "Edit approval thresholds and rules" },
     { "code": "admin.audit.view", "description": "View the audit trail" },
+    {
+      "code": "admin.projects.access",
+      "description": "Counts as a member of every project (Admin)"
+    },
+    { "code": "admin.projects.delete", "description": "Delete projects" },
     { "code": "project.create", "description": "Create projects" },
     { "code": "project.edit", "description": "Edit projects" },
     { "code": "project.view", "description": "View projects the user is a member of" },
     { "code": "project.members.manage", "description": "Add and remove project members" },
     { "code": "estimate.edit", "description": "Edit project estimates (budgets)" },
     { "code": "expense.create", "description": "Record expenses and bills" },
+    { "code": "expense.edit", "description": "Correct a recorded expense or add its attachment" },
     { "code": "expense.reverse", "description": "Reverse an expense" },
     { "code": "expense.view", "description": "View expenses" },
     { "code": "approval.request", "description": "Request approval for over-budget spend" },

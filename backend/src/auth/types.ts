@@ -9,7 +9,15 @@ export type AuthContext = {
   permissions: ReadonlySet<string>;
 };
 
-export type RouteInfo = { method: string; url: string; public: boolean };
+export type RouteInfo = {
+  method: string;
+  url: string;
+  public: boolean;
+  /** Permission codes required by authorize() guards on the route. */
+  permissions: string[];
+  /** Route parameter checked by authorizeProjectAccess(), if any. */
+  projectParam: string | null;
+};
 
 declare module 'fastify' {
   interface FastifyRequest {
