@@ -42,10 +42,23 @@ const dashboard = {
 describe('Dashboard', () => {
   it('shows the headline figures and a dense project table, as the server sent them', async () => {
     mockApi({ 'GET /api/dashboard': () => ({ data: dashboard }) });
-    render(<DashboardPage />);
-    const figures = await screen.findByLabelText('Portfolio figures');
-    expect(figures.textContent).toBe(
-      'Projects2Pending approvals3Budget3,000.000Actual2,150.000Remaining850.000Used71.66%StatusNormal',
+    render(<DashboardPage userName="Ada Lovelace" />);
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
+    expect(screen.getByText(/^Good (morning|afternoon|evening), Ada$/)).toBeTruthy();
+    // Budget > Actual > Remaining > Used (with its status dot), then the counts.
+    const tiles = within(await screen.findByRole('group', { name: 'Portfolio figures' }))
+      .getAllByText(/./, { selector: '.tile-value' })
+      .map((v) => `${v.textContent} ${v.nextElementSibling?.textContent}`);
+    expect(tiles).toEqual([
+      '3,000.000 Budget (KWD)',
+      '2,150.000 Actual (KWD)',
+      '850.000 Remaining (KWD)',
+      '71.66% Used · Normal',
+      '2 Projects',
+      '3 Pending approvals',
+    ]);
+    expect(screen.getByText('Pending approvals').closest('a')?.getAttribute('href')).toBe(
+      '#/approvals',
     );
     const headers = screen.getAllByRole('columnheader').map((c) => c.textContent);
     expect(headers).toEqual([

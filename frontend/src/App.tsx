@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { SessionInfo } from '@boq/shared';
 import { fetchSession, logout } from './api/auth';
-import { GlobalSearch } from './components/GlobalSearch';
+import { Shell } from './components/Shell';
 import { LoginPage } from './pages/LoginPage';
 import { ApprovalRulesPage } from './pages/admin/ApprovalRulesPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
@@ -14,19 +14,8 @@ import { CreateProjectPage } from './pages/projects/CreateProjectPage';
 import { ProjectPage } from './pages/projects/ProjectPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 
-/** Top navigation. Dashboard (home), Projects and Approvals first; Administration pages after. */
-const NAV = [
-  { href: '#/dashboard', label: 'Dashboard' },
-  { href: '#/projects', label: 'Projects' },
-  { href: '#/approvals', label: 'Approvals' },
-  { href: '#/admin/users', label: 'Users' },
-  { href: '#/admin/roles', label: 'Roles' },
-  { href: '#/admin/cost-heads', label: 'Cost heads' },
-  { href: '#/admin/approval-rules', label: 'Approval rules' },
-] as const;
-
 /** Map a location hash to the page to show and the nav entry to highlight. */
-function resolve(hash: string): { nav: string; page: ReactNode } {
+function resolve(hash: string, userName: string): { nav: string; page: ReactNode } {
   const setup = /^#\/projects\/([0-9a-f-]{36})\/setup\/(boq|review)$/i.exec(hash);
   if (setup)
     return {
@@ -62,7 +51,7 @@ function resolve(hash: string): { nav: string; page: ReactNode } {
     case '#/admin/approval-rules':
       return { nav: hash, page: <ApprovalRulesPage /> };
     default:
-      return { nav: '#/dashboard', page: <DashboardPage /> };
+      return { nav: '#/dashboard', page: <DashboardPage userName={userName} /> };
   }
 }
 
@@ -76,46 +65,25 @@ function useHash(): string {
   return hash;
 }
 
-/** Application shell: session, navigation, page. No business logic lives here. */
+/** Application: session, then the page inside the shell. No business logic lives here. */
 export function App() {
   // undefined = still checking, null = signed out
   const [session, setSession] = useState<SessionInfo | null | undefined>(undefined);
-  const { nav, page } = resolve(useHash());
+  const { nav, page } = resolve(useHash(), session?.user.name ?? '');
 
   useEffect(() => {
     fetchSession().then(setSession, () => setSession(null));
   }, []);
 
+  if (session === undefined) return null; // checking the session: show nothing rather than flash the sign-in
+  if (session === null) return <LoginPage onSignedIn={setSession} />;
   return (
-    <div className="shell">
-      <header className="shell-header">
-        <span className="brand">Almailem BoQ Manager</span>
-        {session && (
-          <>
-            <nav className="nav" aria-label="Main">
-              {NAV.map((n) => (
-                <a key={n.href} href={n.href} className={n.href === nav ? 'active' : undefined}>
-                  {n.label}
-                </a>
-              ))}
-            </nav>
-            <span className="spacer" />
-            <GlobalSearch />
-            <span className="muted">{session.user.name}</span>
-            <button
-              type="button"
-              className="btn-link"
-              onClick={() => logout().finally(() => setSession(null))}
-            >
-              Sign out
-            </button>
-          </>
-        )}
-      </header>
-      <main className="shell-main">
-        {session === null && <LoginPage onSignedIn={setSession} />}
-        {session && page}
-      </main>
-    </div>
+    <Shell
+      active={nav}
+      userName={session.user.name}
+      onSignOut={() => void logout().finally(() => setSession(null))}
+    >
+      {page}
+    </Shell>
   );
 }
