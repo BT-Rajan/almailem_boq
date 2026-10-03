@@ -119,12 +119,65 @@ export type Expense = {
 };
 export type ExpensePage = Page<Expense>;
 
+/** An expense an administrator deleted: not active, listed only so its history stays reachable. */
+export type DeletedExpenseRef = {
+  id: string;
+  invoiceNo: string;
+  expenseDate: string;
+  amountFils: Fils;
+  deletedBy: { id: string; name: string } | null;
+  deletedAt: string;
+};
+
 /** One cost head of one project: its figures (from domain/metrics) and its expenses. */
 export type CostHeadDetail = {
   costHead: BoqCostHead;
   metrics: BudgetMetrics;
   status: BudgetStatus;
   expenses: ExpensePage;
+  /** Deleted expenses of this head, newest first. They never count and are not in `expenses`. */
+  deleted: DeletedExpenseRef[];
   /** False once the project is completed or cancelled. */
   editable: boolean;
+};
+
+/** What a history entry records. Plain actions, not internal event names. */
+export const EXPENSE_HISTORY_ACTIONS = [
+  'CREATED',
+  'MODIFIED',
+  'BILL_UPLOADED',
+  'REVERSED',
+  'APPROVAL_REQUESTED',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+  'DELETED',
+] as const;
+export type ExpenseHistoryAction = (typeof EXPENSE_HISTORY_ACTIONS)[number];
+/** Fields a change can name; amounts are fils, the cost head is its "C001 · name" label. */
+export type ExpenseHistoryField =
+  'costHead' | 'vendor' | 'invoiceNo' | 'expenseDate' | 'amountFils' | 'description' | 'bill';
+export type ExpenseHistoryChange = {
+  field: ExpenseHistoryField;
+  from: string | number | null;
+  to: string | number | null;
+};
+export type ExpenseHistoryEntry = {
+  action: ExpenseHistoryAction;
+  /** null: the system acted. */
+  by: { id: string; name: string } | null;
+  at: string;
+  changes: ExpenseHistoryChange[];
+  /** A reason or decision comment, when there was one. */
+  note: string | null;
+};
+
+/** One expense with where it belongs and everything that happened to it, oldest first. */
+export type ExpenseDetail = {
+  expense: Expense;
+  project: { id: string; systemNo: string; code: string; name: string };
+  costHead: { id: string; systemNo: string; code: string; name: string };
+  /** Set when an administrator deleted it: it is kept on record but no longer active. */
+  deleted: { by: { id: string; name: string } | null; at: string } | null;
+  history: ExpenseHistoryEntry[];
 };

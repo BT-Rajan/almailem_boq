@@ -8,8 +8,13 @@ export function Figures(props: {
   label?: string;
   /** Plain figures shown before the money ones (e.g. a project count). */
   lead?: { label: string; value: string }[];
+  /** Name the figures as project totals (the project summary). */
+  totals?: boolean;
 }) {
   const m = props.metrics;
+  const n = props.totals
+    ? ['Total Approved Estimate', 'Total Actual', 'Total Remaining', 'Overall Utilisation']
+    : ['Budget', 'Actual', 'Remaining', 'Used'];
   return (
     <dl className="figures" aria-label={props.label ?? 'Figures'}>
       {props.lead?.map((f) => (
@@ -19,19 +24,19 @@ export function Figures(props: {
         </div>
       ))}
       <div>
-        <dt>Budget</dt>
+        <dt>{n[0]}</dt>
         <dd>{formatFils(m.budget)}</dd>
       </div>
       <div>
-        <dt>Actual</dt>
+        <dt>{n[1]}</dt>
         <dd>{formatFils(m.actual)}</dd>
       </div>
       <div>
-        <dt>Remaining</dt>
+        <dt>{n[2]}</dt>
         <dd className={m.remaining < 0 ? 'negative' : undefined}>{formatFils(m.remaining)}</dd>
       </div>
       <div>
-        <dt>Used</dt>
+        <dt>{n[3]}</dt>
         <dd>{formatUtilisation(m.utilisationBp)}</dd>
       </div>
       <div>

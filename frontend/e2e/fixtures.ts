@@ -159,7 +159,53 @@ const ROUTES: [RegExp, unknown][] = [
       metrics: heads[0]?.metrics,
       status: heads[0]?.status,
       expenses: page(Array.from({ length: 6 }, (_, i) => expense(i))),
+      deleted: [
+        {
+          id: '44444444-4444-4444-8444-444444444499',
+          invoiceNo: 'INV-2026-099',
+          expenseDate: '2026-03-01',
+          amountFils: 1_000_000,
+          deletedBy: { id: 'u1', name: 'Site Admin' },
+          deletedAt: '2026-03-02T08:00:00.000Z',
+        },
+      ],
       editable: true,
+    },
+  ],
+  [
+    /\/api\/projects\/[^/]+\/expenses\/[0-9a-f-]{36}$/,
+    {
+      expense: {
+        ...expense(1),
+        status: 'POSTED',
+        approval: null,
+        modifiedBy: { id: 'u1', name: 'Site Admin' },
+      },
+      project,
+      costHead: heads[0]?.costHead,
+      deleted: null,
+      history: [
+        {
+          action: 'CREATED',
+          by: { id: 'u1', name: 'Site Admin' },
+          at: '2026-03-15T08:00:00.000Z',
+          changes: [{ field: 'amountFils', from: null, to: 12_345_678 }],
+          note: null,
+        },
+        {
+          action: 'MODIFIED',
+          by: { id: 'u1', name: 'Site Admin' },
+          at: '2026-03-16T08:00:00.000Z',
+          changes: [
+            {
+              field: 'vendor',
+              from: 'Placeholder Trading',
+              to: 'Placeholder Trading and Contracting Co. 1',
+            },
+          ],
+          note: null,
+        },
+      ],
     },
   ],
   [

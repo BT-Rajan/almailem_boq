@@ -5,7 +5,9 @@ import {
   type BudgetProjection,
   type CostHeadDetail,
   type CreateExpenseInput,
+  type DeletedExpenseRef,
   type Expense,
+  type ExpenseDetail,
   type ExpensePage,
   type ListExpensesQuery,
   type UpdateExpenseInput,
@@ -21,16 +23,18 @@ import {
   costHeadsRepository,
   estimatesRepository,
   expensesRepository,
+  projectsRepository,
   thresholdsRepository,
   type ExpenseRecord,
 } from '../repositories';
 import { openApprovalRequest } from './approvals';
+import { expenseHistory } from './expense-history';
 import { loadBoq } from './estimates';
 import { headRow, lockOpenProject, projectSpend } from './spend';
 
 /**
- * Expenses (bills): record, correct, reverse, attach. Never deleted: a reversal is a negative entry
- * linked to the original, and the original stops counting toward Actual.
+ * Expenses (bills): record, correct, reverse, attach. Corrections are reversals: a negative entry
+ * linked to the original, which stops counting toward Actual. Only an administrator deletes (soft).
  * An expense that would take its head to the approval level is held for approval (./approvals).
  * Lock order everywhere: project row, then expense row (./spend).
  */
@@ -67,6 +71,17 @@ function toExpense(e: ExpenseRecord): Expense {
     modifiedAt: e.updatedAt.toISOString(),
     status: e.status,
     approval: e.approval,
+  };
+}
+
+function toDeletedRef(e: ExpenseRecord): DeletedExpenseRef {
+  return {
+    id: e.id,
+    invoiceNo: e.invoiceNo,
+    expenseDate: e.expenseDate,
+    amountFils: e.amountFils,
+    deletedBy: e.deletedBy ? { id: e.deletedBy, name: e.deletedByName ?? '' } : null,
+    deletedAt: (e.deletedAt ?? e.updatedAt).toISOString(),
   };
 }
 
@@ -174,7 +189,44 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         metrics: row.metrics,
         status: row.status,
         expenses: await page(projectId, { ...query, costHeadId }),
+        deleted: (await expensesRepository(pool).listDeleted(projectId, costHeadId)).map(
+          toDeletedRef,
+        ),
         editable: boq.editable,
+      };
+    },
+
+    /**
+     * One expense of this project with its project, cost head and history. A deleted expense is
+     * still shown (marked deleted), so its record and history stay reachable.
+     */
+    async detail(projectId: string, id: string): Promise<ExpenseDetail> {
+      const e = await expensesRepository(pool).findInProject(projectId, id, {
+        includeDeleted: true,
+      });
+      if (!e) throw AppError.notFound('Expense not found');
+      const [project, head, history] = await Promise.all([
+        projectsRepository(pool).findById(projectId),
+        costHeadsRepository(pool).findById(e.costHeadId, { includeDeleted: true }),
+        expenseHistory(pool, e),
+      ]);
+      if (!project || !head) throw AppError.notFound('Expense not found');
+      return {
+        expense: toExpense(e),
+        project: {
+          id: project.id,
+          systemNo: project.systemNo,
+          code: project.code,
+          name: project.name,
+        },
+        costHead: { id: head.id, systemNo: head.systemNo, code: head.code, name: head.name },
+        deleted: e.deletedAt
+          ? {
+              by: e.deletedBy ? { id: e.deletedBy, name: e.deletedByName ?? '' } : null,
+              at: e.deletedAt.toISOString(),
+            }
+          : null,
+        history,
       };
     },
 

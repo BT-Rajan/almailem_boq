@@ -186,8 +186,8 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
   });
 });
 
-describe('Project BoQ tab', () => {
-  it('shows Budget, Actual, Remaining, Used and an Action per head, as the server sent them', async () => {
+describe('Project summary tab', () => {
+  it('shows Approved Estimate, Actual, Remaining, Utilisation and an Action per head, as the server sent them', async () => {
     mockApi({
       [`GET /api/projects/${ID}`]: () => ({ data: project }),
       [`GET /api/projects/${ID}/boq`]: () => ({ data: boq }),
@@ -198,8 +198,8 @@ describe('Project BoQ tab', () => {
       .getAllByRole('cell')
       .map((c) => c.textContent);
     expect(cells).toEqual([
-      'H2',
-      'C002 Head H2',
+      'C002',
+      'H2 Head H2',
       '1.000',
       '1.500',
       '-0.500',
@@ -209,15 +209,28 @@ describe('Project BoQ tab', () => {
     ]);
     const headers = screen.getAllByRole('columnheader').map((c) => c.textContent);
     expect(headers.slice(0, 8)).toEqual([
-      'Code',
-      'Cost head',
-      'Budget',
+      'Cost Code',
+      'Cost Head',
+      'Approved Estimate',
       'Actual',
       'Remaining',
-      'Used',
+      'Utilisation %',
       'Status',
       'Action',
     ]);
+  });
+
+  it('lists only approved heads (and any still carrying spend); a row opens its expenses', async () => {
+    const extra = { ...row('h3', 'H3', 0, 0, 0, 0), inBudget: false };
+    mockApi({
+      [`GET /api/projects/${ID}`]: () => ({ data: project }),
+      [`GET /api/projects/${ID}/boq`]: () => ({ data: { ...boq, rows: [...boq.rows, extra] } }),
+    });
+    render(<ProjectPage id={ID} />);
+    const h1 = (await screen.findByText('Head H1')).closest('tr') as HTMLElement;
+    expect(screen.queryByText('Head H3')).toBeNull();
+    fireEvent.click(h1.querySelector('td') as HTMLElement);
+    expect(window.location.hash).toBe(`#/projects/${ID}/heads/h1`);
   });
 
   it('the approved budget is frozen: no direct edit, its state is shown with the next step', async () => {
@@ -260,7 +273,7 @@ describe('Project BoQ tab', () => {
     expect(notice.textContent).toContain('proposed 2,000.000 KWD (approved 1,250.500)');
     // The figures stay the approved budget.
     expect((await screen.findByLabelText('Project figures')).textContent).toContain(
-      'Budget1,251.500',
+      'Total Approved Estimate1,251.500',
     );
   });
 

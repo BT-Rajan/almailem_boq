@@ -170,6 +170,20 @@ test('cost-head page: Add expense within thumb reach; the preview shows in the s
   await expect(page.getByRole('status', { name: 'After this expense' })).toBeVisible();
 });
 
+test('tapping an expense opens its detail and history as a bottom sheet, touch-sized', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}/heads/${H}`);
+  await page.getByText('INV-2026-003').click();
+  const sheet = page.locator('.slideover.sheet');
+  await expect(sheet.getByRole('list', { name: 'History' })).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'View bill.pdf' })).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+  ).toBeLessThanOrEqual(0);
+  expect(await smallTargets(page)).toEqual([]);
+});
+
 test('Approvals: in landscape every money column and Action fit without scrolling', async ({
   page,
 }, info) => {

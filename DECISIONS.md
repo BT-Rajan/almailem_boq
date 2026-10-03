@@ -340,3 +340,17 @@ A project's cost structure (which cost heads apply, and the estimate for each) i
   - **The UI** shows Delete only to holders of the permission. The server enforces it either way.
 - **Deleted expenses do not exist for figures.** `countsTowardActual` excludes them, so the BoQ, dashboard, control projection and reports all follow from one place. Lists, cost-head detail and search exclude them too. The invoice uniqueness key ignores them. The threshold algorithm is unchanged.
 - **Removal protection.** A project cost head with any expense that has not been deleted (posted, waiting, rejected, cancelled or reversed) cannot leave the budget, and that applies to administrators as well. The check runs both when a request is submitted and when it is approved (D31). Once a head's only expenses have been deleted, it can be removed. This concerns a project's budget lines, not the global cost-head master (`admin.costheads.manage`), whose rules are unchanged.
+
+## D33. KWD input has 3 decimals; project summary and expense drill-down
+- **Three decimals, never rounded.** Kuwaiti dinars have 3 decimals (fils). Every KWD amount typed in the UI, for both expenses and estimates, goes through one parser (`parseKwdInput`). It refuses a 4th decimal instead of rounding it. The API only accepts integer fils.
+- **Project summary** is the project page's Summary tab, built on the existing BoQ response with no second calculation:
+  - Rows: one per approved cost head (`inProjectSummary`), plus any head that still carries spend from before budgets were approved, so the rows always add up to the server's total.
+  - Columns: Cost Code (C number), Cost Head, Approved Estimate, Actual, Remaining, Utilisation %, Status, Action.
+  - Totals: shown above the table, from the server's `total`.
+  - Approved figures only: the estimate is always `project_estimates`, so a pending budget change never counts (D31).
+- **Drill-down:**
+  - A summary row opens the cost-head page, which lists that project and head's expenses with a Status column.
+  - Tapping an expense opens its detail in a bottom sheet: `GET /api/projects/:id/expenses/:expenseId`, which needs `expense.view` and project membership, like the list and the bill.
+  - An expense from another project is not found.
+- **History** is read from the existing audit trail: the expense's own events and those of its approval request. It is shown as plain actions (Created, Modified, Bill uploaded, Reversed, approval steps, Deleted), each with who, when, and the field changes or note. Nothing new is recorded.
+- **Deleted expenses** stay out of the active list and the figures. Each cost-head page has a folded "Deleted expenses" list, and each entry opens its record and full history, marked deleted. A deleted expense's bill is no longer served.

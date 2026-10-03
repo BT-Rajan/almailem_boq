@@ -122,7 +122,7 @@ describe('Project header and "needs attention first"', () => {
     render(<ProjectPage id={ID} />);
     const figures = await screen.findByLabelText('Project figures');
     expect(figures.textContent).toBe(
-      'Budget1,000.000Actual820.000Remaining180.000Used82.00%StatusWarning',
+      'Total Approved Estimate1,000.000Total Actual820.000Total Remaining180.000Overall Utilisation82.00%StatusWarning',
     );
     fireEvent.click(screen.getByLabelText('Needs attention first'));
     await waitFor(() => expect(calls.at(-1)?.url).toBe(`/api/projects/${ID}/boq?order=attention`));

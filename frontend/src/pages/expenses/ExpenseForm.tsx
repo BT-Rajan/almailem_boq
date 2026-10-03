@@ -46,7 +46,7 @@ export function ExpenseForm(props: {
   const set = (key: keyof typeof v) => (ev: { target: { value: string } }) =>
     setV({ ...v, [key]: ev.target.value });
 
-  const amountFils = v.amount.trim() ? parseKwdInput(v.amount) : null;
+  const amountFils = parseKwdInput(v.amount);
   // Only heads in the approved budget take expenses (server); keep the current one when editing.
   const heads = (boq.data?.rows ?? []).filter(
     (r) => (r.costHead.active && r.inBudget) || r.costHead.id === v.costHeadId,
@@ -122,6 +122,9 @@ export function ExpenseForm(props: {
           required
         />
       </label>
+      {v.amount.trim() && amountFils === null && (
+        <p className="error">Enter a non-negative amount with at most 3 decimals.</p>
+      )}
       {projection && <Preview projected={projection.projected} />}
       {needsApproval && (
         <label>

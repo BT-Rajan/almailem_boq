@@ -31,6 +31,9 @@ export type ExpenseRecord = {
   updatedBy: string | null;
   updatedByName: string | null;
   updatedAt: Date;
+  deletedAt: Date | null;
+  deletedBy: string | null;
+  deletedByName: string | null;
   reversalOf: string | null;
   reversedAt: Date | null;
   status: ExpenseStatus;
@@ -87,6 +90,9 @@ const map = (r: Row): ExpenseRecord => ({
   updatedBy: strOrNull(r, 'updated_by'),
   updatedByName: strOrNull(r, 'updated_by_name'),
   updatedAt: toDate(r['updated_at']),
+  deletedAt: toDateOrNull(r['deleted_at']),
+  deletedBy: strOrNull(r, 'deleted_by'),
+  deletedByName: strOrNull(r, 'deleted_by_name'),
   reversalOf: strOrNull(r, 'reversal_of'),
   reversedAt: toDateOrNull(r['reversed_at']),
   status: expenseStatusSchema.parse(r['status']),
@@ -109,7 +115,7 @@ const map = (r: Row): ExpenseRecord => ({
 });
 
 const EXPENSE_COLUMNS = `SELECT e.*, h.code AS cost_head_code, h.name AS cost_head_name,
-  u.name AS created_by_name, um.name AS updated_by_name, a.id AS approval_id, a.status AS approval_status,
+  u.name AS created_by_name, um.name AS updated_by_name, ux.name AS deleted_by_name, a.id AS approval_id, a.status AS approval_status,
   a.reason AS approval_reason, a.requested_by AS approval_requested_by,
   ar.name AS approval_requester, a.decided_by AS approval_decided_by, ad.name AS approval_decider,
   a.decided_at AS approval_decided_at, a.decision_comment AS approval_comment`;
@@ -117,6 +123,7 @@ const EXPENSE_FROM = `FROM expenses e
   JOIN cost_heads h ON h.id = e.cost_head_id
   JOIN users u ON u.id = e.created_by
   LEFT JOIN users um ON um.id = e.updated_by
+  LEFT JOIN users ux ON ux.id = e.deleted_by
   LEFT JOIN approvals a ON a.expense_id = e.id
   LEFT JOIN users ar ON ar.id = a.requested_by
   LEFT JOIN users ad ON ad.id = a.decided_by`;
@@ -175,14 +182,31 @@ export function expensesRepository(db: Db) {
         return str(row as Row, 'id');
       });
     },
-    /** An expense of this project, or null (an id from another project is "not found"). */
-    async findInProject(projectId: string, id: string): Promise<ExpenseRecord | null> {
+    /**
+     * An expense of this project, or null (an id from another project is "not found"). A deleted
+     * one only with includeDeleted: for reading its record and history, never for changing it.
+     */
+    async findInProject(
+      projectId: string,
+      id: string,
+      opts: { includeDeleted?: boolean } = {},
+    ): Promise<ExpenseRecord | null> {
       const row = await selectOne(
         db,
-        `${SELECT} WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL`,
+        `${SELECT} WHERE e.id = ? AND e.project_id = ?${opts.includeDeleted ? '' : ' AND e.deleted_at IS NULL'}`,
         [id, projectId],
       );
       return row ? map(row) : null;
+    },
+    /** The deleted expenses of one project head, newest deletion first. */
+    async listDeleted(projectId: string, costHeadId: string): Promise<ExpenseRecord[]> {
+      const rows = await selectRows(
+        db,
+        `${SELECT} WHERE e.project_id = ? AND e.cost_head_id = ? AND e.deleted_at IS NOT NULL
+          ORDER BY e.deleted_at DESC, e.id`,
+        [projectId, costHeadId],
+      );
+      return rows.map(map);
     },
     /** Row-lock one expense until the transaction ends. */
     async lock(id: string): Promise<void> {

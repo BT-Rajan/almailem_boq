@@ -287,6 +287,21 @@ a {
 .facts.wide {
   grid-template-columns: 110px 1fr;
 }
+/* An expense's history: one compact entry per action, oldest first. */
+.facts a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
 .prewrap {
   white-space: pre-wrap;
 }
@@ -1212,4 +1227,24 @@ a.tile:hover {
     width: 44px;
     height: 44px;
   }
+}
+
+/* Deleted expenses under a cost head: folded away, each one opens its record and history. */
+.deleted-expenses {
+  margin-top: 12px;
+}
+.deleted-expenses summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+.deleted-expenses ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deleted-expenses li {
+  padding: 4px 0;
 }

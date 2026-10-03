@@ -23,12 +23,12 @@ import { ProjectForm, toRequest } from './ProjectForm';
 
 type Tab = 'boq' | 'details' | 'members';
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'boq', label: 'BoQ' },
+  { key: 'boq', label: 'Summary' },
   { key: 'details', label: 'Details' },
   { key: 'members', label: 'Members' },
 ];
 
-/** Project page: header, status actions, and the BoQ, Details and Members tabs. */
+/** Project page: header, status actions, and the Summary, Details and Members tabs. */
 export function ProjectPage(props: { id: string }) {
   const { id } = props;
   const project = useLoad(useCallback(() => getProject(id), [id]));
@@ -184,7 +184,12 @@ function Boq(props: { projectId: string }) {
   if (!boq.data) return <ErrorText message={boq.error} />;
   return (
     <>
-      <Figures metrics={boq.data.total} status={boq.data.totalStatus} label="Project figures" />
+      <Figures
+        metrics={boq.data.total}
+        status={boq.data.totalStatus}
+        label="Project figures"
+        totals
+      />
       <div className="row boq-actions">
         <label className="check">
           <input

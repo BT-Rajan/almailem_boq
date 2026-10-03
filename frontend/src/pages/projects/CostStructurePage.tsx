@@ -4,7 +4,7 @@ import { getCostStructure, submitCostStructure } from '../../api/cost-structure'
 import { getBoq } from '../../api/estimates';
 import { attempt, useLoad } from '../../api/use-load';
 import { formatDate } from '../../components/format';
-import { parseExactKwdInput } from '../../components/kwd';
+import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 
@@ -264,7 +264,7 @@ function AmountForm(props: {
   onSave: (fils: Fils) => void;
 }) {
   const [text, setText] = useState(props.initial === undefined ? '' : formatFils(props.initial));
-  const amount = parseExactKwdInput(text);
+  const amount = parseKwdInput(text);
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
     if (amount !== null) props.onSave(amount);

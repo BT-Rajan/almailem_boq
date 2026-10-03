@@ -615,4 +615,60 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
       expect((await removeH2()).statusCode).toBe(201);
     });
   });
+
+  describe('expense detail and history', () => {
+    it('shows the record, where it belongs, and its history in plain actions', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 1_000 });
+      await call(pm, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, { amountFils: 1_500 });
+      await upload(p, e.id, PDF, 'application/pdf');
+      const res = await call(viewer, 'GET', `/api/projects/${p}/expenses/${e.id}`);
+      expect(res.statusCode).toBe(200);
+      const d = res.json().data;
+      expect(d.expense).toMatchObject({
+        id: e.id,
+        amountFils: 1_500,
+        attachment: { name: 'bill 7.pdf' },
+      });
+      expect(d.project.id).toBe(p);
+      expect(d.costHead).toMatchObject({ id: h1.id, code: 'X1' });
+      expect(d.deleted).toBeNull();
+      expect(d.history.map((h: { action: string }) => h.action)).toEqual([
+        'CREATED',
+        'MODIFIED',
+        'BILL_UPLOADED',
+      ]);
+      expect(d.history[1]).toMatchObject({
+        by: { name: expect.any(String) },
+        changes: [{ field: 'amountFils', from: 1_000, to: 1_500 }],
+      });
+    });
+
+    it('only for members, and only within its own project', async () => {
+      const p = await newProject();
+      const other = await newProject();
+      const e = await addOk(p);
+      expect((await call(outsider, 'GET', `/api/projects/${p}/expenses/${e.id}`)).statusCode).toBe(
+        403,
+      );
+      expect((await call(pm, 'GET', `/api/projects/${other}/expenses/${e.id}`)).statusCode).toBe(
+        404,
+      );
+    });
+
+    it('a deleted expense is no longer active, but its record and history stay', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 2_000 });
+      await call(admin, 'DELETE', `/api/projects/${p}/expenses/${e.id}`);
+      const head = (await call(viewer, 'GET', `/api/projects/${p}/cost-heads/${h1.id}`)).json()
+        .data;
+      expect(head.expenses.items).toHaveLength(0);
+      expect(head.deleted).toEqual([
+        expect.objectContaining({ id: e.id, amountFils: 2_000, deletedBy: expect.any(Object) }),
+      ]);
+      const d = (await call(viewer, 'GET', `/api/projects/${p}/expenses/${e.id}`)).json().data;
+      expect(d.deleted).toMatchObject({ by: { name: expect.any(String) } });
+      expect(d.history.at(-1)).toMatchObject({ action: 'DELETED' });
+    });
+  });
 });

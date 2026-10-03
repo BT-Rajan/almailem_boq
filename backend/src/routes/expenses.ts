@@ -52,6 +52,15 @@ export function registerExpenseRoutes(
     },
   );
 
+  app.get(
+    '/api/projects/:projectId/expenses/:expenseId',
+    onProject('expense.view'),
+    async (request) => {
+      const { projectId, expenseId } = expenseParamsSchema.parse(request.params);
+      return okResponse(await service.detail(projectId, expenseId));
+    },
+  );
+
   app.patch(
     '/api/projects/:projectId/expenses/:expenseId',
     onProject('expense.edit'),

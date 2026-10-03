@@ -38,6 +38,7 @@ const POLICY: [string, string][] = [
     'expense.create + project member',
   ],
   ['GET /api/projects/:projectId/expenses', 'expense.view + project member'],
+  ['GET /api/projects/:projectId/expenses/:expenseId', 'expense.view + project member'],
   ['GET /api/projects/:projectId/expenses/:expenseId/attachment', 'expense.view + project member'],
   ['GET /api/projects/:projectId/members', 'project.view + project member'],
   ['GET /api/ready', 'public'],
