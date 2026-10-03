@@ -188,7 +188,7 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
     });
     render(<CreateProjectPage step="boq" projectId={ID} />);
     expect((await screen.findByText(/Pending Admin approval/)).textContent).toContain('Ada');
-    expect(screen.getByText('5. Admin approval').className).toBe('active');
+    await waitFor(() => expect(screen.getByText('5. Admin approval').className).toBe('active'));
     expect(screen.queryByRole('group', { name: 'Cost heads' })).toBeNull();
   });
 });
