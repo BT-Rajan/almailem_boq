@@ -15,6 +15,7 @@ const POLICY: [string, string][] = [
   ['DELETE /api/admin/users/:userId/projects/:projectId', 'admin.users.manage'],
   ['DELETE /api/admin/users/:userId/roles/:roleId', 'admin.users.manage'],
   ['DELETE /api/projects/:projectId', 'admin.projects.delete + project member'],
+  ['DELETE /api/projects/:projectId/expenses/:expenseId', 'admin.expenses.delete + project member'],
   ['DELETE /api/projects/:projectId/members/:userId', 'project.members.manage + project member'],
   ['GET /api/admin/approval-rules', 'admin.approvalrules.manage'],
   ['GET /api/admin/cost-heads', 'admin.costheads.manage'],

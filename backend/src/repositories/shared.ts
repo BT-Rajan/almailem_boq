@@ -31,11 +31,11 @@ export function buildSet<P extends Record<string, unknown>>(
 
 /**
  * The one rule for which expense rows count toward Actual: posted originals that are not reversed.
- * (Reversal entries record the correction and are not counted again; held, rejected and cancelled
- * expenses never count.) Matches the leading columns of ix_expenses_project_actual.
+ * (Reversal entries record the correction and are not counted again; held, rejected, cancelled and
+ * deleted expenses never count.) Matches the leading columns of ix_expenses_project_actual.
  */
 export const countsTowardActual = (alias: string): string =>
-  `${alias}.status = 'POSTED' AND ${alias}.reversal_of IS NULL AND ${alias}.reversed_at IS NULL`;
+  `${alias}.status = 'POSTED' AND ${alias}.reversal_of IS NULL AND ${alias}.reversed_at IS NULL AND ${alias}.deleted_at IS NULL`;
 
 /** "?, ?, ?" for an IN (...) list. Callers must not pass an empty list. */
 export const placeholders = (n: number): string => Array.from({ length: n }, () => '?').join(', ');

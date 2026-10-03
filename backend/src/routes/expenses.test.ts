@@ -2,10 +2,15 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CSRF_HEADER } from '@boq/shared';
+import { CSRF_HEADER, fils } from '@boq/shared';
 import { JPG, PDF, PNG } from '../attachments/testing';
 import { hasTestDb } from '../db/testing';
-import { auditLogRepository, costHeadsRepository, type CostHeadRecord } from '../repositories';
+import {
+  auditLogRepository,
+  costHeadsRepository,
+  estimatesRepository,
+  type CostHeadRecord,
+} from '../repositories';
 import {
   approveHeld,
   asUser,
@@ -18,7 +23,7 @@ import {
 } from '../auth/testing';
 
 // Placeholder cost heads and vendors for tests only.
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type Metrics = { budget: number; actual: number; remaining: number; utilisationBp: number };
 type Expense = {
   id: string;
@@ -83,6 +88,8 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
     });
     await call(pm, 'PUT', `/api/projects/${p.id}/members/${accountantId}`);
     await call(pm, 'PUT', `/api/projects/${p.id}/members/${viewerId}`);
+    // h2 is in the approved budget at 0: spend on it is the zero-budget case (D3).
+    await estimatesRepository(fx.db.pool).upsert(p.id, h2.id, fils(0));
     return p.id;
   };
   const expenseBody = (over: Record<string, unknown> = {}) => ({
@@ -508,6 +515,104 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
           .statusCode,
       ).toBe(403);
       expect((await reverse(p, e.id, 'x', viewer)).statusCode).toBe(403);
+    });
+  });
+
+  describe('lifecycle: budget heads, edits and admin deletion', () => {
+    const del = (p: string, id: string, s: Session = admin) =>
+      call(s, 'DELETE', `/api/projects/${p}/expenses/${id}`);
+
+    it('an expense goes only on a head in the approved budget', async () => {
+      const p = await newProject();
+      const h3 = await costHeadsRepository(fx.db.pool).create({
+        code: `XN-${++seq}`,
+        name: 'Not in budget',
+        displayOrder: 9,
+      });
+      const res = await add(p, { costHeadId: h3.id });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('HEAD_NOT_IN_BUDGET');
+      const e = await addOk(p);
+      const moved = await call(accountant, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, {
+        costHeadId: h3.id,
+      });
+      expect(moved.json().error.code).toBe('HEAD_NOT_IN_BUDGET');
+    });
+
+    it('an edit records who modified it, when, and what changed', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 1_000 });
+      const res = await call(pm, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, {
+        vendor: 'Renamed Co',
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toMatchObject({
+        vendor: 'Renamed Co',
+        modifiedBy: { name: expect.any(String) },
+      });
+      expect(res.json().data.modifiedAt).toEqual(expect.any(String));
+      const audit = await auditLogRepository(fx.db.pool).listForEntity('expense', e.id);
+      expect(audit.at(-1)).toMatchObject({
+        event: 'expense.updated',
+        before: expect.objectContaining({ vendor: 'Acme Trading' }),
+        after: expect.objectContaining({ vendor: 'Renamed Co' }),
+      });
+    });
+
+    it('only an admin deletes; a deleted expense leaves Actual, lists and search, and is audited', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 300_000, invoiceNo: `DEL-${++seq}` });
+      expect((await headMetrics(p)).actual).toBe(300_000);
+      for (const s of [pm, accountant, viewer, outsider]) {
+        expect((await del(p, e.id, s)).statusCode).toBe(403);
+      }
+      expect((await headMetrics(p)).actual).toBe(300_000);
+
+      expect((await del(p, e.id)).statusCode).toBe(200);
+      expect(await headMetrics(p)).toEqual({
+        budget: 1_000_000,
+        actual: 0,
+        remaining: 1_000_000,
+        utilisationBp: 0,
+      });
+      expect((await call(pm, 'GET', `/api/projects/${p}/expenses`)).json().data.total).toBe(0);
+      const found = (await call(admin, 'GET', `/api/search?q=DEL-${seq}`)).json().data;
+      expect(found.invoices).toHaveLength(0);
+      expect((await del(p, e.id)).statusCode).toBe(404);
+      const audit = await auditLogRepository(fx.db.pool).listForEntity('expense', e.id);
+      expect(audit.map((r) => r.event)).toContain('expense.created');
+      expect(audit.at(-1)).toMatchObject({
+        event: 'expense.deleted',
+        before: expect.objectContaining({ amountFils: 300_000 }),
+        after: { deleted: true },
+      });
+    });
+
+    it('reversals and expenses waiting for approval are not deleted', async () => {
+      const p = await newProject();
+      const e = await addOk(p);
+      const rev = (await reverse(p, e.id)).json().data as Expense;
+      expect((await del(p, rev.id)).statusCode).toBe(409);
+      expect((await del(p, e.id)).statusCode).toBe(409);
+      const held = (
+        await add(p, { amountFils: 1_500_000, approvalReason: TEST_APPROVAL_REASON })
+      ).json().data as Expense & { status: string };
+      expect(held.status).toBe('PENDING_APPROVAL');
+      expect((await del(p, held.id)).statusCode).toBe(409);
+    });
+
+    it('a head with expenses stays in the budget, even for an admin, until they are deleted', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { costHeadId: h2.id, amountFils: 5 });
+      const removeH2 = () =>
+        call(admin, 'POST', `/api/projects/${p}/cost-structure/proposals`, {
+          lines: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
+        });
+      const refused = await removeH2();
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json().error.code).toBe('HEAD_HAS_EXPENSES');
+      expect((await del(p, e.id)).statusCode).toBe(200);
+      expect((await removeH2()).statusCode).toBe(201);
     });
   });
 });

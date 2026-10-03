@@ -106,6 +106,9 @@ export type Expense = {
   attachment: { name: string; type: AttachmentType; size: number } | null;
   createdBy: { id: string; name: string };
   createdAt: string;
+  /** Who changed it last (edit, bill, reversal, approval decision); null if never changed. */
+  modifiedBy: { id: string; name: string } | null;
+  modifiedAt: string;
   /** Set on a reversal entry: the expense it cancels. */
   reversalOf: string | null;
   /** Set on an expense that has been reversed. */

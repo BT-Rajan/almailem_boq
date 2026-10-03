@@ -152,7 +152,11 @@ export function createApprovalService(pool: DbPool) {
       decidedBp: step.projectedBp,
       comment: step.comment,
     });
-    await expensesRepository(tx).setStatus(a.expense.id, expenseStatusFor(step.to));
+    await expensesRepository(tx).setStatus(
+      a.expense.id,
+      expenseStatusFor(step.to),
+      step.actorUserId,
+    );
     await repo.addAction({
       approvalId: a.id,
       action: step.to as 'APPROVED' | 'REJECTED' | 'CANCELLED',

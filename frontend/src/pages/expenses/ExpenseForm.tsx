@@ -47,8 +47,9 @@ export function ExpenseForm(props: {
     setV({ ...v, [key]: ev.target.value });
 
   const amountFils = v.amount.trim() ? parseKwdInput(v.amount) : null;
+  // Only heads in the approved budget take expenses (server); keep the current one when editing.
   const heads = (boq.data?.rows ?? []).filter(
-    (r) => r.costHead.active || r.costHead.id === v.costHeadId,
+    (r) => (r.costHead.active && r.inBudget) || r.costHead.id === v.costHeadId,
   );
   const projection = useProjection(projectId, e ? '' : v.costHeadId, amountFils);
   const needsApproval = projection?.projected.status === 'APPROVAL_REQUIRED';

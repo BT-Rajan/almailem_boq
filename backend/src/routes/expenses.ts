@@ -62,6 +62,17 @@ export function registerExpenseRoutes(
     },
   );
 
+  // Administrators only: everyone else corrects with a reversal.
+  app.delete(
+    '/api/projects/:projectId/expenses/:expenseId',
+    onProject('admin.expenses.delete'),
+    async (request) => {
+      const { projectId, expenseId } = expenseParamsSchema.parse(request.params);
+      await service.remove(currentActor(request), projectId, expenseId);
+      return okResponse({ deleted: true as const });
+    },
+  );
+
   app.post(
     '/api/projects/:projectId/expenses/:expenseId/reverse',
     onProject('expense.reverse'),

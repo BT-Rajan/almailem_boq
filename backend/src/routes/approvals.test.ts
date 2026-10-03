@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ApprovalItem, Expense } from '@boq/shared';
+import { fils, type ApprovalItem, type Expense } from '@boq/shared';
 import { hasTestDb } from '../db/testing';
 import {
   approvalsRepository,
   auditLogRepository,
   costHeadsRepository,
+  estimatesRepository,
   type CostHeadRecord,
 } from '../repositories';
 import {
@@ -66,6 +67,8 @@ describe.skipIf(!hasTestDb)('approval workflow (real MariaDB)', () => {
     });
     await call(pm, 'PUT', `/api/projects/${id}/members/${accountantId}`);
     await call(pm, 'PUT', `/api/projects/${id}/members/${viewerId}`);
+    // h2 is in the approved budget at 0: spend on it is the zero-budget case (D3).
+    await estimatesRepository(fx.db.pool).upsert(id, h2.id, fils(0));
     return id;
   };
   const add = (p: string, amountFils: number, extra: Record<string, unknown> = {}, s = pm) =>

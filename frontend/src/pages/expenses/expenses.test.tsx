@@ -17,7 +17,12 @@ const H = '44444444-4444-4444-8444-444444444444';
 const metrics = { budget: 1_000_000, actual: 800_000, remaining: 200_000, utilisationBp: 8000 };
 const boq = {
   rows: [
-    { costHead: { id: H, code: 'H1', name: 'Head one', active: true }, metrics, status: 'WARNING' },
+    {
+      costHead: { id: H, code: 'H1', name: 'Head one', active: true },
+      inBudget: true,
+      metrics,
+      status: 'WARNING',
+    },
   ],
   total: metrics,
   totalStatus: 'WARNING',
@@ -31,6 +36,8 @@ const base = {
   attachment: null,
   createdBy: { id: 'u1', name: 'Ada' },
   createdAt: '2026-03-15T08:00:00.000Z',
+  modifiedBy: null,
+  modifiedAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
   status: 'POSTED',
@@ -173,6 +180,22 @@ describe('Cost-head detail', () => {
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ reason: 'Entered twice' }),
     );
+  });
+  it('offers Delete only to an administrator, and deletes after confirmation', async () => {
+    const calls = mockApi({
+      [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({ data: detail }),
+      [`DELETE /api/projects/${P}/expenses/e1`]: () => ({ data: { deleted: true } }),
+    });
+    const { unmount } = render(<CostHeadPage projectId={P} costHeadId={H} />);
+    await screen.findByRole('button', { name: 'Edit' });
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    unmount();
+
+    vi.stubGlobal('confirm', () => true);
+    render(<CostHeadPage projectId={P} costHeadId={H} canDelete />);
+    expect(await screen.findAllByRole('button', { name: 'Delete' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
   });
 });
 

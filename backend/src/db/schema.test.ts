@@ -60,11 +60,11 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
     ).map((r) => String(r['c']));
 
   describe('structure', () => {
-    it('soft delete (deleted_at) exists only on users, projects and cost_heads', async () => {
+    it('soft delete (deleted_at) exists only on users, projects, cost_heads and expenses', async () => {
       const withDeleted: string[] = [];
       for (const t of ALL_TABLES)
         if ((await columnsOf(t)).includes('deleted_at')) withDeleted.push(t);
-      expect(withDeleted.sort()).toEqual(['cost_heads', 'projects', 'users']);
+      expect(withDeleted.sort()).toEqual(['cost_heads', 'expenses', 'projects', 'users']);
     });
 
     it('every table has created_at; entity tables also have updated_at', async () => {
@@ -121,8 +121,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       );
       // role_permissions 2, user_roles 2, projects 1, project_members 2, audit_log 1, sessions 1,
       // project_estimates 2, expenses 4, budget_thresholds 1, approvals 4, approval_actions 2,
-      // approval_budget_lines 2
-      expect(fks).toHaveLength(24);
+      // approval_budget_lines 2, expenses updated_by/deleted_by 2
+      expect(fks).toHaveLength(26);
       for (const fk of fks) {
         const idx = await q(
           `SELECT 1 FROM information_schema.statistics

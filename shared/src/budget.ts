@@ -30,7 +30,13 @@ export type BoqCostHead = {
   active: boolean;
 };
 /** Status comes from domain/control, using the thresholds in Admin > Approval Rules. */
-export type BoqRow = { costHead: BoqCostHead; metrics: BudgetMetrics; status: BudgetStatus };
+export type BoqRow = {
+  costHead: BoqCostHead;
+  metrics: BudgetMetrics;
+  status: BudgetStatus;
+  /** In the project's approved budget: only these heads take expenses. */
+  inBudget: boolean;
+};
 export type ProjectBoq = {
   rows: BoqRow[];
   total: BudgetMetrics;

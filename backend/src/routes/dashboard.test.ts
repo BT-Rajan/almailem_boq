@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Dashboard, ProjectBoq } from '@boq/shared';
+import { fils, type Dashboard, type ProjectBoq } from '@boq/shared';
 import { calculateBudgetStatus } from '../domain/control';
 import { hasTestDb, seedPortfolio } from '../db/testing';
-import { costHeadsRepository, type CostHeadRecord } from '../repositories';
+import { costHeadsRepository, estimatesRepository, type CostHeadRecord } from '../repositories';
 import {
   approveHeld,
   asUser,
@@ -72,6 +72,10 @@ describe.skipIf(!hasTestDb)('dashboard (real MariaDB)', () => {
     await call(admin, 'PUT', `/api/projects/${id}/estimates`, {
       estimates: budgets.map(([h, amountFils]) => ({ costHeadId: h.id, amountFils })),
     });
+    // Expenses go only on heads in the approved budget: spent heads without one join it at 0.
+    for (const [h] of spend)
+      if (!budgets.some(([b]) => b.id === h.id))
+        await estimatesRepository(fx.db.pool).upsert(id, h.id, fils(0));
     const ids: string[] = [];
     for (const [h, amountFils] of spend) {
       const res = await call(s, 'POST', `/api/projects/${id}/expenses`, {

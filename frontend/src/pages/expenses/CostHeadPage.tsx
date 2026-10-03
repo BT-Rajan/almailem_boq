@@ -1,7 +1,12 @@
 import { useCallback, useState } from 'react';
 import { formatFils, type EXPENSE_SORTS, type Expense, type ListParams } from '@boq/shared';
 import { cancelApproval } from '../../api/approvals';
-import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
+import {
+  attachmentUrl,
+  deleteExpense,
+  getCostHeadDetail,
+  reverseExpense,
+} from '../../api/expenses';
 import { attempt } from '../../api/use-load';
 import { expenseStatusLabel, formatDate } from '../../components/format';
 import { Figures } from '../../components/Figures';
@@ -12,8 +17,15 @@ import { ExpenseForm, ReverseForm } from './ExpenseForm';
 type Panel =
   { kind: 'add' } | { kind: 'edit'; expense: Expense } | { kind: 'reverse'; expense: Expense };
 
-/** One cost head of a project: its figures (from the server) and every expense on it. */
-export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
+/**
+ * One cost head of a project: its figures (from the server) and every expense on it.
+ * `canDelete` only shows the administrator's Delete action; the server enforces it.
+ */
+export function CostHeadPage(props: {
+  projectId: string;
+  costHeadId: string;
+  canDelete?: boolean;
+}) {
   const { projectId, costHeadId } = props;
   const detail = useList(
     useCallback(
@@ -32,6 +44,13 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
 
   const cancel = async (e: Expense) => {
     const err = await attempt(() => cancelApproval(projectId, e.id));
+    setActionError(err);
+    if (!err) detail.reload();
+  };
+
+  const remove = async (e: Expense) => {
+    if (!window.confirm(`Delete expense ${e.invoiceNo} (${formatFils(e.amountFils)} KWD)?`)) return;
+    const err = await attempt(() => deleteExpense(projectId, e.id));
     setActionError(err);
     if (!err) detail.reload();
   };
@@ -121,7 +140,15 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
                       </a>
                     )}
                   </td>
-                  <td>{e.createdBy.name}</td>
+                  <td
+                    title={
+                      e.modifiedBy
+                        ? `Modified by ${e.modifiedBy.name}, ${formatDate(e.modifiedAt.slice(0, 10))}`
+                        : undefined
+                    }
+                  >
+                    {e.createdBy.name}
+                  </td>
                   <td className="num">
                     {e.status === 'PENDING_APPROVAL' && (
                       <button type="button" onClick={() => void cancel(e)}>
@@ -141,6 +168,14 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
                           onClick={() => setPanel({ kind: 'reverse', expense: e })}
                         >
                           Reverse
+                        </button>
+                      </>
+                    )}
+                    {props.canDelete && d.editable && posted && !isReversal && !reversed && (
+                      <>
+                        {' '}
+                        <button type="button" className="btn-danger" onClick={() => void remove(e)}>
+                          Delete
                         </button>
                       </>
                     )}

@@ -21,6 +21,7 @@ const heads = Array.from({ length: 12 }, (_, i) => {
       name: `Placeholder cost head with a fairly long descriptive name ${i}`,
       active: true,
     },
+    inBudget: true,
     metrics: m(125_000_500, Math.floor((125_000_500 * bp) / 10000), bp),
     status: status(bp),
   };
@@ -57,6 +58,8 @@ const expense = (i: number) => ({
   attachment: i % 2 ? { name: 'bill.pdf', type: 'application/pdf', size: 1000 } : null,
   createdBy: { id: 'u1', name: 'Site Admin' },
   createdAt: '2026-03-15T08:00:00.000Z',
+  modifiedBy: null,
+  modifiedAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
   // One entry waits for approval, so its Cancel request button is part of the layout checks.
@@ -110,7 +113,8 @@ const ROUTES: [RegExp, unknown][] = [
     /\/api\/auth\/me$/,
     {
       user: { id: 'u1', email: 'admin@example.com', name: 'Site Admin' },
-      permissions: [],
+      // An administrator: the expense Delete action is part of the layout checks.
+      permissions: ['admin.expenses.delete'],
       csrfToken: 'c',
     },
   ],

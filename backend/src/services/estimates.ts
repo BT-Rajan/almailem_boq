@@ -67,6 +67,7 @@ export async function loadBoq(
       },
       metrics,
       status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
+      inBudget: budgets.has(head.id),
     };
   });
   return {

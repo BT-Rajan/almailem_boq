@@ -31,7 +31,7 @@ export function searchRepository(db: Db) {
       const x = scope('x.project_id');
       // Expenses of live projects only; reversal entries are records of a correction, not results.
       const expenseFrom = `FROM expenses x JOIN projects p ON p.id = x.project_id AND p.deleted_at IS NULL
-        WHERE x.reversal_of IS NULL`;
+        WHERE x.reversal_of IS NULL AND x.deleted_at IS NULL`;
       const expenseCols = 'SELECT x.*, p.code AS project_code';
 
       const [projects, heads, invoices, vendors, expenses] = await Promise.all([

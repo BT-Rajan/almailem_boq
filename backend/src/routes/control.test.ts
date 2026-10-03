@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hasTestDb } from '../db/testing';
-import { auditLogRepository, costHeadsRepository, type CostHeadRecord } from '../repositories';
+import { fils } from '@boq/shared';
+import {
+  auditLogRepository,
+  costHeadsRepository,
+  estimatesRepository,
+  type CostHeadRecord,
+} from '../repositories';
 import {
   approveHeld,
   asUser,
@@ -65,6 +71,8 @@ describe.skipIf(!hasTestDb)('budget status, projection and approval rules (real 
       estimates: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
     });
     await call(pm, 'PUT', `/api/projects/${id}/members/${viewerId}`);
+    // h2 is in the approved budget at 0: spend on it is the zero-budget case (D3).
+    await estimatesRepository(fx.db.pool).upsert(id, h2.id, fils(0));
     return id;
   };
   /** Spend that lands in Actual: past the approval level it is approved by the admin. */

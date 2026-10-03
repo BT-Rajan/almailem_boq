@@ -29,6 +29,7 @@ const row = (
     name: `Head ${code}`,
     active,
   },
+  inBudget: true,
   metrics: { budget, actual, remaining, utilisationBp },
   status: utilisationBp >= 10_000 ? 'APPROVAL_REQUIRED' : 'NORMAL', // as a server would send it
 });
