@@ -40,10 +40,14 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
     );
     return String(rows[0]?.['id']);
   };
+  // Raw inserts bypass the repository, so they bring their own (unique, well-formed) system numbers.
+  let seq = 0;
+  const pNo = () => `P${String(++seq).padStart(5, '0')}`;
+  const cNo = () => `C${String(++seq).padStart(3, '0')}`;
   const project = async (code: string, owner: string) => {
     const rows = await q(
-      "INSERT INTO projects (code, name, owner_user_id, status) VALUES (?, 'p', ?, 's') RETURNING id",
-      [code, owner],
+      "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, ?, 'p', ?, 's') RETURNING id",
+      [pNo(), code, owner],
     );
     return String(rows[0]?.['id']);
   };
@@ -154,10 +158,34 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       await expect(project('P-1', owner)).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
     });
     it('cost head code is unique', async () => {
-      await q("INSERT INTO cost_heads (code, name) VALUES ('CH-1', 'a')");
+      await q("INSERT INTO cost_heads (system_no, code, name) VALUES (?, 'CH-1', 'a')", [cNo()]);
       await expect(
-        q("INSERT INTO cost_heads (code, name) VALUES ('CH-1', 'b')"),
+        q("INSERT INTO cost_heads (system_no, code, name) VALUES (?, 'CH-1', 'b')", [cNo()]),
       ).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
+    });
+    it('system numbers are unique and well formed', async () => {
+      const owner = await user('owner-sys@x.com');
+      const no = pNo();
+      await q(
+        "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, 'S-1', 'p', ?, 's')",
+        [no, owner],
+      );
+      await expect(
+        q(
+          "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, 'S-2', 'p', ?, 's')",
+          [no, owner],
+        ),
+      ).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
+      for (const bad of ['P1', 'X00001', 'P0000A'])
+        await expect(
+          q(
+            "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, ?, 'p', ?, 's')",
+            [bad, `S-${bad}`, owner],
+          ),
+        ).rejects.toThrow();
+      await expect(
+        q("INSERT INTO cost_heads (system_no, code, name) VALUES ('C1', 'S-C', 'h')"),
+      ).rejects.toThrow();
     });
     it('role name and permission code are unique', async () => {
       await q("INSERT INTO roles (name) VALUES ('R-x')");
@@ -246,9 +274,12 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
   describe('project_estimates', () => {
     const head = async (code: string) =>
       String(
-        (await q("INSERT INTO cost_heads (code, name) VALUES (?, 'h') RETURNING id", [code]))[0]?.[
-          'id'
-        ],
+        (
+          await q(
+            "INSERT INTO cost_heads (system_no, code, name) VALUES (?, ?, 'h') RETURNING id",
+            [cNo(), code],
+          )
+        )[0]?.['id'],
       );
 
     it('one estimate per project and head; money is exact BIGINT and never negative', async () => {
@@ -311,9 +342,12 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       u = await user('exp@x.com');
       p = await project('EXP-1', u);
       h = String(
-        (await q("INSERT INTO cost_heads (code, name) VALUES ('XH-1', 'h') RETURNING id"))[0]?.[
-          'id'
-        ],
+        (
+          await q(
+            "INSERT INTO cost_heads (system_no, code, name) VALUES (?, 'XH-1', 'h') RETURNING id",
+            [cNo()],
+          )
+        )[0]?.['id'],
       );
     });
     const add = async (
@@ -387,7 +421,10 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
 
   it('strict mode rejects over-long values instead of truncating', async () => {
     await expect(
-      q("INSERT INTO cost_heads (code, name) VALUES (?, 'x')", ['C'.repeat(31)]),
+      q("INSERT INTO cost_heads (system_no, code, name) VALUES (?, ?, 'x')", [
+        cNo(),
+        'C'.repeat(31),
+      ]),
     ).rejects.toThrow();
   });
 });

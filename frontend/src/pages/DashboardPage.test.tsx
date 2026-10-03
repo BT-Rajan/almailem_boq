@@ -22,6 +22,7 @@ const dashboard = {
   projects: [
     {
       id: 'p1',
+      systemNo: 'P00001',
       code: 'ALM-1',
       name: 'Tower',
       projectStatus: 'active',
@@ -30,6 +31,7 @@ const dashboard = {
     },
     {
       id: 'p2',
+      systemNo: 'P00002',
       code: 'ALM-2',
       name: 'Villas',
       projectStatus: 'on_hold',
@@ -76,7 +78,7 @@ describe('Dashboard', () => {
         .getAllByRole('cell')
         .map((c) => c.textContent),
     ).toEqual([
-      'ALM-1 · Tower Active',
+      'P00001 · ALM-1 · Tower Active',
       '1,000.000',
       '1,050.000',
       '-50.000',

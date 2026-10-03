@@ -12,7 +12,14 @@ import {
 
 // Test data only: placeholder heads, not real cost heads.
 const MISSING = '00000000-0000-1000-8000-000000000000';
-type Head = { id: string; code: string; name: string; active: boolean; displayOrder: number };
+type Head = {
+  id: string;
+  systemNo: string;
+  code: string;
+  name: string;
+  active: boolean;
+  displayOrder: number;
+};
 
 describe.skipIf(!hasTestDb)('admin: cost head master (real MariaDB)', () => {
   let fx: Fixture;
@@ -174,6 +181,36 @@ describe.skipIf(!hasTestDb)('admin: cost head master (real MariaDB)', () => {
       const all = await list();
       expect(all.at(-1)?.id).toBe(h.id);
       expect(h.displayOrder).toBe(all.length);
+    });
+  });
+
+  describe('system number (C001...)', () => {
+    it('is assigned in sequence, cannot be sent, never changes on edit, and is unique under concurrency', async () => {
+      const made: { id: string; systemNo: string }[] = [];
+      for (const code of ['SN-1', 'SN-2'])
+        made.push((await create({ code, name: code })).json().data);
+      for (const h of made) expect(h.systemNo).toMatch(/^C\d{3}$/);
+      const n = (h: { systemNo: string }) => Number(h.systemNo.slice(1));
+      expect(n(made[1] as { systemNo: string })).toBe(n(made[0] as { systemNo: string }) + 1);
+
+      expect((await create({ code: 'SN-X', name: 'x', systemNo: 'C999' })).statusCode).toBe(400);
+      const id = made[0]?.id as string;
+      expect(
+        (await call(admin, 'PATCH', `/api/admin/cost-heads/${id}`, { systemNo: 'C999' }))
+          .statusCode,
+      ).toBe(400);
+      await call(admin, 'PATCH', `/api/admin/cost-heads/${id}`, { name: 'Renamed', code: 'SN-1B' });
+      expect((await list()).find((h) => h.id === id)).toMatchObject({
+        name: 'Renamed',
+        systemNo: made[0]?.systemNo,
+      });
+
+      const burst = await Promise.all(
+        Array.from({ length: 8 }, (_, i) => create({ code: `SN-C${i}`, name: `c${i}` })),
+      );
+      const numbers = burst.map((r) => n(r.json().data)).sort((x, y) => x - y);
+      const start = n(made[1] as { systemNo: string });
+      expect(numbers).toEqual(Array.from({ length: 8 }, (_, i) => start + 1 + i));
     });
   });
 });

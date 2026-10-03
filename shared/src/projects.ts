@@ -92,6 +92,8 @@ export const userLookupQuerySchema = z
 
 export type ProjectSummary = {
   id: string;
+  /** System number, P00001...: assigned by the server, never sent by a client. */
+  systemNo: string;
   code: string;
   name: string;
   status: ProjectStatus;

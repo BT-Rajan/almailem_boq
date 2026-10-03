@@ -48,7 +48,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         </a>
         <span className="muted">/</span>
         <h1>
-          {d.costHead.code} · {d.costHead.name}
+          {d.costHead.systemNo} · {d.costHead.code} · {d.costHead.name}
         </h1>
         {!d.costHead.active && <span className="tag">Inactive</span>}
         <span className="spacer" />

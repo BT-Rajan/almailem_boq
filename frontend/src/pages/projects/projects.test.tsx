@@ -15,6 +15,7 @@ afterEach(() => {
 const ID = '11111111-1111-4111-8111-111111111111';
 const project = {
   id: ID,
+  systemNo: 'P00001',
   code: 'ALM-1',
   name: 'Tower',
   status: 'active',
@@ -97,7 +98,7 @@ describe('Project page', () => {
       [`POST /api/projects/${ID}/status`]: () => ({ data: { ...project, status: 'on_hold' } }),
     });
     render(<ProjectPage id={ID} />);
-    await screen.findByText('ALM-1 · Tower');
+    await screen.findByText('P00001 · ALM-1 · Tower');
     const labels = screen.getAllByRole('button', { name: /^Mark / }).map((b) => b.textContent);
     expect(labels).toEqual(['Mark on hold', 'Mark completed', 'Mark cancelled']);
     fireEvent.click(screen.getByRole('button', { name: 'Mark on hold' }));

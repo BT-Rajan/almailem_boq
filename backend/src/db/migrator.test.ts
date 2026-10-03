@@ -21,6 +21,7 @@ const ALL = [
   '0011_expenses_actual_index',
   '0012_search_indexes',
   '0013_approvals',
+  '0014_system_numbers',
 ];
 const APP_TABLES = [
   'approval_actions',
@@ -36,6 +37,7 @@ const APP_TABLES = [
   'role_permissions',
   'roles',
   'sessions',
+  'system_counters',
   'user_roles',
   'users',
 ];
@@ -86,11 +88,10 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
   it('rolls back one step at a time, newest first', async () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
-    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0013_approvals']);
+    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0014_system_numbers']);
     const t = await tables(db);
-    expect(t).not.toContain('approvals'); // only the newest step went
-    expect(t).not.toContain('approval_actions');
-    expect(t).toContain('expenses');
+    expect(t).not.toContain('system_counters'); // only the newest step went
+    expect(t).toContain('approvals');
   });
 
   it('refuses to run when an applied migration was edited', async () => {

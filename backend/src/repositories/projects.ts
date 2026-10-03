@@ -2,6 +2,7 @@ import type { PROJECT_SORTS, ProjectRef } from '@boq/shared';
 import { memberScope, runList, type ListInput, type ListSpec } from '../query/list';
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
+import { nextSystemNumber } from './system-numbers';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
@@ -17,6 +18,8 @@ import {
 /** No financial fields on a project, by design (budgets live on estimates, from Chunk 07). */
 export type ProjectRecord = Timestamps & {
   id: string;
+  /** P00001...: assigned by the system at insert, never changed. */
+  systemNo: string;
   code: string;
   name: string;
   ownerUserId: string;
@@ -41,6 +44,7 @@ type ProjectSort = (typeof PROJECT_SORTS)[number];
 
 const map = (r: Row): ProjectRecord => ({
   id: str(r, 'id'),
+  systemNo: str(r, 'system_no'),
   code: str(r, 'code'),
   name: str(r, 'name'),
   ownerUserId: str(r, 'owner_user_id'),
@@ -89,11 +93,13 @@ export function projectsRepository(db: Db) {
   return {
     async create(input: NewProject): Promise<ProjectRecord> {
       return guarded('Project', async () => {
+        const systemNo = await nextSystemNumber(db, 'project');
         const row = await selectOne(
           db,
-          `INSERT INTO projects (code, name, owner_user_id, status, start_date, end_date, description)
-           VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+          `INSERT INTO projects (system_no, code, name, owner_user_id, status, start_date, end_date, description)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
           [
+            systemNo,
             input.code,
             input.name,
             input.ownerUserId,

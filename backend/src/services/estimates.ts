@@ -58,7 +58,13 @@ export async function loadBoq(
   const rows = lines.map(({ head, figures }) => {
     const metrics = budgetMetrics(figures);
     return {
-      costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+      costHead: {
+        id: head.id,
+        systemNo: head.systemNo,
+        code: head.code,
+        name: head.name,
+        active: head.active,
+      },
       metrics,
       status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
     };

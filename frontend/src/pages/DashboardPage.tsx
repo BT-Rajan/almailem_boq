@@ -153,8 +153,8 @@ export function DashboardPage(props: { userName?: string }) {
                       className="clickable"
                       onClick={() => navigate(`#/projects/${p.id}`)}
                     >
-                      <td className="name" title={`${p.code} · ${p.name}`}>
-                        {p.code} · {p.name}{' '}
+                      <td className="name" title={`${p.systemNo} · ${p.code} · ${p.name}`}>
+                        {p.systemNo} · {p.code} · {p.name}{' '}
                         <span className="tag muted">{statusLabel(p.projectStatus)}</span>
                       </td>
                       <td className="num">{formatFils(p.metrics.budget)}</td>

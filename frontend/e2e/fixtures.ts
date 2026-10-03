@@ -16,6 +16,7 @@ const heads = Array.from({ length: 12 }, (_, i) => {
   return {
     costHead: {
       id: i === 0 ? H : `33333333-3333-4333-8333-3333333333${String(i).padStart(2, '0')}`,
+      systemNo: `C${String(i + 1).padStart(3, '0')}`,
       code: `0${i} 30 00`,
       name: `Placeholder cost head with a fairly long descriptive name ${i}`,
       active: true,
@@ -32,6 +33,7 @@ const boq = {
 };
 const project = {
   id: P,
+  systemNo: 'P00001',
   code: 'ALM-2026-001',
   name: 'Placeholder tower with a long project name',
   status: 'active',

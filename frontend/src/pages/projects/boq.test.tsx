@@ -22,7 +22,13 @@ const row = (
   utilisationBp: number,
   active = true,
 ) => ({
-  costHead: { id, code, name: `Head ${code}`, active },
+  costHead: {
+    id,
+    systemNo: `C${code.replace(/\D/g, '').padStart(3, '0')}`,
+    code,
+    name: `Head ${code}`,
+    active,
+  },
   metrics: { budget, actual, remaining, utilisationBp },
   status: utilisationBp >= 10_000 ? 'APPROVAL_REQUIRED' : 'NORMAL', // as a server would send it
 });
@@ -116,7 +122,7 @@ describe('Project BoQ tab', () => {
       .map((c) => c.textContent);
     expect(cells).toEqual([
       'H2',
-      'Head H2',
+      'C002 Head H2',
       '1.000',
       '1.500',
       '-0.500',

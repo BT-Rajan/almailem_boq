@@ -56,7 +56,7 @@ export function ProjectPage(props: { id: string }) {
         </a>
         <span className="muted">/</span>
         <h1>
-          {p.code} · {p.name}
+          {p.systemNo} · {p.code} · {p.name}
         </h1>
         <span className="tag">{statusLabel(p.status)}</span>
         <span className="spacer" />
@@ -236,6 +236,8 @@ function Details(props: { project: ProjectDetail }) {
   const p = props.project;
   return (
     <dl className="facts wide">
+      <dt>Number</dt>
+      <dd>{p.systemNo}</dd>
       <dt>Code</dt>
       <dd>{p.code}</dd>
       <dt>Owner</dt>

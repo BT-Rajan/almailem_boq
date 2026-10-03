@@ -154,7 +154,13 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
       ]);
       const row = headRow(boq, costHeadId, thresholds);
       return {
-        costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+        costHead: {
+          id: head.id,
+          systemNo: head.systemNo,
+          code: head.code,
+          name: head.name,
+          active: head.active,
+        },
         metrics: row.metrics,
         status: row.status,
         expenses: await page(projectId, { ...query, costHeadId }),

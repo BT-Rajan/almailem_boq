@@ -203,7 +203,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect(byName.items.map((p: { id: string }) => p.id)).toContain(mine.id);
       const summary = pmList.items[0];
       expect(Object.keys(summary).sort()).toEqual(
-        ['code', 'endDate', 'id', 'name', 'ownerName', 'startDate', 'status'].sort(),
+        ['code', 'endDate', 'id', 'name', 'ownerName', 'startDate', 'status', 'systemNo'].sort(),
       );
     });
 
@@ -356,6 +356,43 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect(Object.keys(all.json().data[0]).sort()).toEqual(['email', 'id', 'name']);
       expect(all.body).not.toMatch(/argon2|password/i);
       expect((await call(viewer, 'GET', '/api/users/lookup')).statusCode).toBe(403);
+    });
+  });
+
+  describe('system number (P00001...)', () => {
+    const numberOf = (systemNo: string) => Number(systemNo.slice(1));
+    it('is assigned in sequence, cannot be sent, and never changes on edit', async () => {
+      const made = [];
+      for (let i = 0; i < 3; i++)
+        made.push((await newProject()) as unknown as { id: string; systemNo: string });
+      for (const p of made) expect(p.systemNo).toMatch(/^P\d{5}$/);
+      const [a, b, c] = made.map((p) => numberOf(p.systemNo));
+      expect([b, c]).toEqual([(a as number) + 1, (a as number) + 2]);
+
+      const sent = await call(pm, 'POST', '/api/projects', {
+        code: 'PRJ-SYS',
+        name: 'x',
+        systemNo: 'P99999',
+      });
+      expect(sent.statusCode).toBe(400);
+      const id = made[0]?.id as string;
+      expect(
+        (await call(pm, 'PATCH', `/api/projects/${id}`, { systemNo: 'P99999' })).statusCode,
+      ).toBe(400);
+      await call(pm, 'PATCH', `/api/projects/${id}`, { name: 'Renamed' });
+      const after = (await call(pm, 'GET', `/api/projects/${id}`)).json().data;
+      expect(after).toMatchObject({ name: 'Renamed', systemNo: made[0]?.systemNo });
+    });
+
+    it('concurrent creation never shares a number, and a failed create leaves no gap', async () => {
+      const before = numberOf(((await newProject()) as unknown as { systemNo: string }).systemNo);
+      const dup = await call(pm, 'POST', '/api/projects', { code: `PRJ-${seq}`, name: 'dup' });
+      expect(dup.statusCode).toBe(409); // duplicate code: rolled back, number given back
+      const made = await Promise.all(
+        Array.from({ length: 10 }, () => newProject() as unknown as Promise<{ systemNo: string }>),
+      );
+      const numbers = made.map((p) => numberOf(p.systemNo)).sort((x, y) => x - y);
+      expect(numbers).toEqual(Array.from({ length: 10 }, (_, i) => before + 1 + i));
     });
   });
 });

@@ -1,5 +1,6 @@
 import { guarded } from '../db/errors';
 import type { Db } from '../db/pool';
+import { nextSystemNumber } from './system-numbers';
 import { exec, selectOne, selectRows, type Row } from '../db/sql';
 import {
   buildSet,
@@ -15,6 +16,8 @@ import {
 
 export type CostHeadRecord = Timestamps & {
   id: string;
+  /** C001...: assigned by the system at insert, never changed. */
+  systemNo: string;
   code: string;
   name: string;
   description: string | null;
@@ -39,6 +42,7 @@ export type CostHeadPatch = {
 
 const map = (r: Row): CostHeadRecord => ({
   id: str(r, 'id'),
+  systemNo: str(r, 'system_no'),
   code: str(r, 'code'),
   name: str(r, 'name'),
   description: strOrNull(r, 'description'),
@@ -61,11 +65,13 @@ export function costHeadsRepository(db: Db) {
   return {
     async create(input: NewCostHead): Promise<CostHeadRecord> {
       return guarded('Cost head', async () => {
+        const systemNo = await nextSystemNumber(db, 'cost_head');
         const row = await selectOne(
           db,
-          `INSERT INTO cost_heads (code, name, description, display_order, active)
-           VALUES (?, ?, ?, ?, ?) RETURNING *`,
+          `INSERT INTO cost_heads (system_no, code, name, description, display_order, active)
+           VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
           [
+            systemNo,
             input.code,
             input.name,
             input.description ?? null,

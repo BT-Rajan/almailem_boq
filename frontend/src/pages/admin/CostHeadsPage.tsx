@@ -52,6 +52,7 @@ export function CostHeadsPage() {
           <thead>
             <tr>
               <th className="num">#</th>
+              <th>No.</th>
               <th>Code</th>
               <th>Name</th>
               <th>Description</th>
@@ -67,6 +68,7 @@ export function CostHeadsPage() {
                 onClick={() => setPanel(h)}
               >
                 <td className="num">{i + 1}</td>
+                <td>{h.systemNo}</td>
                 <td>{h.code}</td>
                 <td>{h.name}</td>
                 <td className="muted">{h.description ?? ''}</td>
@@ -93,7 +95,7 @@ export function CostHeadsPage() {
             ))}
             {data && data.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   No cost heads yet. Add them here or load the seed file.
                 </td>
               </tr>

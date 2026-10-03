@@ -21,7 +21,14 @@ export type BudgetMetrics = {
   utilisationBp: number;
 };
 
-export type BoqCostHead = { id: string; code: string; name: string; active: boolean };
+export type BoqCostHead = {
+  id: string;
+  /** System number, C001.... */
+  systemNo: string;
+  code: string;
+  name: string;
+  active: boolean;
+};
 /** Status comes from domain/control, using the thresholds in Admin > Approval Rules. */
 export type BoqRow = { costHead: BoqCostHead; metrics: BudgetMetrics; status: BudgetStatus };
 export type ProjectBoq = {

@@ -32,7 +32,9 @@ export function BoqTable(props: {
           {boq.rows.map((r) => (
             <tr key={r.costHead.id} className={r.costHead.active ? undefined : 'inactive'}>
               <td>{r.costHead.code}</td>
-              <td className="name" title={r.costHead.name}>
+              {/* The system number leads the (width-capped) name cell, so the BoQ still fits. */}
+              <td className="name" title={`${r.costHead.systemNo} · ${r.costHead.name}`}>
+                <span className="muted">{r.costHead.systemNo}</span>{' '}
                 {projectId ? (
                   <a href={`#/projects/${projectId}/heads/${r.costHead.id}`}>{r.costHead.name}</a>
                 ) : (
