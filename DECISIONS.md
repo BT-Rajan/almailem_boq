@@ -354,3 +354,9 @@ A project's cost structure (which cost heads apply, and the estimate for each) i
   - An expense from another project is not found.
 - **History** is read from the existing audit trail: the expense's own events and those of its approval request. It is shown as plain actions (Created, Modified, Bill uploaded, Reversed, approval steps, Deleted), each with who, when, and the field changes or note. Nothing new is recorded.
 - **Deleted expenses** stay out of the active list and the figures. Each cost-head page has a folded "Deleted expenses" list, and each entry opens its record and full history, marked deleted. A deleted expense's bill is no longer served.
+
+## D34. Estimate vs Actual chart on the project summary
+- **Plain HTML and CSS bars**, horizontal and grouped (Estimate, then Actual), placed under the summary table. No chart library was added: two bars per head do not need one.
+- **Same figures as the table.** The chart reads the summary's BoQ rows, with the same filter (`inProjectSummary`), the same order and the same `metrics`. It sums nothing and queries nothing else.
+- **Honest scale.** Every bar is a share of the largest figure shown, so an Actual above its Estimate is drawn longer and never capped. Each bar carries its exact value, formatted with `formatFils`. An Actual above its Estimate is shown in red.
+- **Interaction and layout.** Each head links to the same cost-head page as its table row. With many heads the list scrolls inside the chart. With no approved heads, a one-line empty state replaces the chart. Colours (teal Estimate, brand-blue Actual) pass the palette checks.

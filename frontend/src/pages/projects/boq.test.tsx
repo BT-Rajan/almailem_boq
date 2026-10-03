@@ -193,7 +193,9 @@ describe('Project summary tab', () => {
       [`GET /api/projects/${ID}/boq`]: () => ({ data: boq }),
     });
     render(<ProjectPage id={ID} />);
-    const h2 = (await screen.findByText('Head H2')).closest('tr') as HTMLElement;
+    const h2 = (await screen.findAllByText('Head H2'))
+      .map((e) => e.closest('tr'))
+      .find(Boolean) as HTMLElement;
     const cells = within(h2)
       .getAllByRole('cell')
       .map((c) => c.textContent);
@@ -227,10 +229,49 @@ describe('Project summary tab', () => {
       [`GET /api/projects/${ID}/boq`]: () => ({ data: { ...boq, rows: [...boq.rows, extra] } }),
     });
     render(<ProjectPage id={ID} />);
-    const h1 = (await screen.findByText('Head H1')).closest('tr') as HTMLElement;
+    const h1 = (await screen.findAllByText('Head H1'))
+      .map((e) => e.closest('tr'))
+      .find(Boolean) as HTMLElement;
     expect(screen.queryByText('Head H3')).toBeNull();
     fireEvent.click(h1.querySelector('td') as HTMLElement);
     expect(window.location.hash).toBe(`#/projects/${ID}/heads/h1`);
+  });
+
+  it('charts Estimate against Actual from the same rows, uncapped, each head linking to its expenses', async () => {
+    mockApi({
+      [`GET /api/projects/${ID}`]: () => ({ data: project }),
+      [`GET /api/projects/${ID}/boq`]: () => ({ data: boq }),
+    });
+    render(<ProjectPage id={ID} />);
+    const chart = await screen.findByRole('figure', { name: /Approved Estimate and Actual/ });
+    const items = within(chart).getAllByRole('link');
+    expect(items.map((a) => a.getAttribute('href'))).toEqual([
+      `#/projects/${ID}/heads/h1`,
+      `#/projects/${ID}/heads/h2`,
+    ]);
+    // H1: estimate 1,250.500 is the largest figure; actual 0 draws no bar but shows 0.000.
+    expect(
+      within(items[0] as HTMLElement).getByLabelText('Approved Estimate 1,250.500'),
+    ).toBeTruthy();
+    expect(within(items[0] as HTMLElement).getByLabelText('Actual 0.000')).toBeTruthy();
+    const bars = (a: HTMLElement) =>
+      [...a.querySelectorAll<HTMLElement>('.ea-bar')].map((b) => b.style.width);
+    expect(bars(items[0] as HTMLElement)).toEqual(['100%', '0%']);
+    // H2: actual 1.500 over estimate 1.000 is drawn longer, not capped at the estimate.
+    const [est, act] = bars(items[1] as HTMLElement).map(parseFloat) as [number, number];
+    expect(act / est).toBeCloseTo(1.5);
+  });
+
+  it('shows an empty state, not an empty chart, without approved heads', async () => {
+    mockApi({
+      [`GET /api/projects/${ID}`]: () => ({ data: project }),
+      [`GET /api/projects/${ID}/boq`]: () => ({
+        data: { ...noBudget, rows: noBudget.rows.map((r) => ({ ...r, inBudget: false })) },
+      }),
+    });
+    render(<ProjectPage id={ID} />);
+    expect(await screen.findByText(/nothing to chart/)).toBeTruthy();
+    expect(screen.queryByRole('figure')).toBeNull();
   });
 
   it('the approved budget is frozen: no direct edit, its state is shown with the next step', async () => {
@@ -283,7 +324,7 @@ describe('Project summary tab', () => {
       [`GET /api/projects/${ID}/boq`]: () => ({ data: { ...boq, editable: false } }),
     });
     render(<ProjectPage id={ID} />);
-    await screen.findByText('Head H1');
+    await screen.findAllByText('Head H1');
     expect(screen.queryByRole('button', { name: /Edit budget/ })).toBeNull();
   });
 });

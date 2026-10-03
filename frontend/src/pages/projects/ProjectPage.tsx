@@ -13,6 +13,7 @@ import {
 } from '../../api/projects';
 import { attempt, useLoad } from '../../api/use-load';
 import { BoqTable } from '../../components/BoqTable';
+import { EstimateActualChart } from '../../components/EstimateActualChart';
 import { Figures } from '../../components/Figures';
 import { formatDate, statusLabel } from '../../components/format';
 import { navigate } from '../../components/navigate';
@@ -212,6 +213,7 @@ function Boq(props: { projectId: string }) {
       </div>
       <BudgetStatus projectId={projectId} />
       <BoqTable boq={boq.data} projectId={projectId} />
+      <EstimateActualChart boq={boq.data} projectId={projectId} />
       {adding && (
         <SlideOver title="Add expense" onClose={closeAdd} sheet>
           <ExpenseForm

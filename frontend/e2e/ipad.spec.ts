@@ -170,6 +170,24 @@ test('cost-head page: Add expense within thumb reach; the preview shows in the s
   await expect(page.getByRole('status', { name: 'After this expense' })).toBeVisible();
 });
 
+test('summary chart: Estimate vs Actual per head, readable, no sideways page scroll', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}`);
+  const chart = page.getByRole('figure', { name: /Approved Estimate and Actual/ });
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart.getByRole('link')).toHaveCount(12);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+  ).toBeLessThanOrEqual(0);
+  const box = await chart.boundingBox();
+  const vp = page.viewportSize() as { width: number; height: number };
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vp.width);
+  await chart.screenshot({ path: test.info().outputPath('estimate-actual.png') });
+  await chart.getByRole('link').first().click();
+  await expect(page).toHaveURL(new RegExp(`#/projects/${P}/heads/`));
+});
+
 test('tapping an expense opens its detail and history as a bottom sheet, touch-sized', async ({
   page,
 }) => {

@@ -1248,3 +1248,105 @@ a.tile:hover {
 .deleted-expenses li {
   padding: 4px 0;
 }
+
+/* Estimate vs Actual chart (project summary): plain bars, exact values beside them. */
+.ea-chart {
+  --ea-est: #0f9fb0;
+  --ea-act: var(--accent);
+  margin: 16px 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 8px 12px;
+  min-width: 0;
+}
+.ea-chart figcaption {
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0 8px;
+}
+.ea-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.ea-swatch {
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+}
+.ea-swatch.est,
+.ea-bar.est {
+  background: var(--ea-est);
+}
+.ea-swatch.act,
+.ea-bar.act {
+  background: var(--ea-act);
+}
+/* Many heads scroll inside the chart; the page itself never moves sideways. */
+.ea-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.ea-list li + li {
+  border-top: 1px solid var(--border);
+}
+.ea-item {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+.ea-item:hover {
+  background: var(--hover);
+}
+.ea-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ea-bars {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ea-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ea-track {
+  flex: 1;
+  min-width: 0;
+}
+.ea-bar {
+  display: block;
+  height: 10px;
+  min-width: 0;
+  border-radius: 0 4px 4px 0;
+}
+.ea-value {
+  flex: none;
+  width: 120px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.chart-empty {
+  margin-top: 16px;
+}
+@media (max-width: 640px) {
+  .ea-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
