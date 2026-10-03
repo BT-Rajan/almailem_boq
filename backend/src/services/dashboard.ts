@@ -31,6 +31,7 @@ export function createDashboardService(pool: DbPool) {
         },
         projects: projects.map((p) => ({
           id: p.id,
+          systemNo: p.systemNo,
           code: p.code,
           name: p.name,
           projectStatus: projectStatusSchema.parse(p.status),

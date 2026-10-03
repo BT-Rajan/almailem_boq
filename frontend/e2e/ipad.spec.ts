@@ -14,6 +14,7 @@ const PAGES: [string, string][] = [
   ['approvals', '#/approvals'],
   ['project-boq', `#/projects/${P}`],
   ['cost-head', `#/projects/${P}/heads/${H}`],
+  ['cost-structure', `#/projects/${P}/setup/boq`],
   ['users', '#/admin/users'],
   ['roles', '#/admin/roles'],
   ['cost-heads', '#/admin/cost-heads'],
@@ -169,6 +170,38 @@ test('cost-head page: Add expense within thumb reach; the preview shows in the s
   await expect(page.getByRole('status', { name: 'After this expense' })).toBeVisible();
 });
 
+test('summary chart: Estimate vs Actual per head, readable, no sideways page scroll', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}`);
+  const chart = page.getByRole('figure', { name: /Approved Estimate and Actual/ });
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart.getByRole('link')).toHaveCount(12);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+  ).toBeLessThanOrEqual(0);
+  const box = await chart.boundingBox();
+  const vp = page.viewportSize() as { width: number; height: number };
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vp.width);
+  await chart.screenshot({ path: test.info().outputPath('estimate-actual.png') });
+  await chart.getByRole('link').first().click();
+  await expect(page).toHaveURL(new RegExp(`#/projects/${P}/heads/`));
+});
+
+test('tapping an expense opens its detail and history as a bottom sheet, touch-sized', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}/heads/${H}`);
+  await page.getByText('INV-2026-003').click();
+  const sheet = page.locator('.slideover.sheet');
+  await expect(sheet.getByRole('list', { name: 'History' })).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'View bill.pdf' })).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+  ).toBeLessThanOrEqual(0);
+  expect(await smallTargets(page)).toEqual([]);
+});
+
 test('Approvals: in landscape every money column and Action fit without scrolling', async ({
   page,
 }, info) => {
@@ -196,4 +229,27 @@ test('an approval decision opens as a bottom sheet with its main button under th
   expect((b?.y ?? 0) + (b?.height ?? 0) / 2).toBeGreaterThan(vp.height * 0.6);
   expect(await smallTargets(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('approval-sheet.png') });
+});
+
+test('cost structure: two-column selection, then a tappable estimates table, all touch-sized', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}/setup/boq`);
+  const grid = page.getByRole('group', { name: 'Cost heads' });
+  const cards = grid.locator('label.check-card');
+  const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+  expect(a?.y).toBe(b?.y); // two columns
+  expect(a?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await page.getByRole('button', { name: 'Next: Enter estimates' }).click();
+  await page
+    .getByRole('row', { name: /Estimate for/ })
+    .first()
+    .click();
+  await expect(page.locator('.slideover.sheet')).toBeVisible();
+  expect(await smallTargets(page)).toEqual([]);
+  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
 });

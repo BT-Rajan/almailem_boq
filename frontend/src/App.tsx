@@ -15,7 +15,11 @@ import { ProjectPage } from './pages/projects/ProjectPage';
 import { ProjectsPage } from './pages/projects/ProjectsPage';
 
 /** Map a location hash to the page to show and the nav entry to highlight. */
-function resolve(hash: string, userName: string): { nav: string; page: ReactNode } {
+function resolve(
+  hash: string,
+  userName: string,
+  permissions: readonly string[],
+): { nav: string; page: ReactNode } {
   const setup = /^#\/projects\/([0-9a-f-]{36})\/setup\/(boq|review)$/i.exec(hash);
   if (setup)
     return {
@@ -29,7 +33,12 @@ function resolve(hash: string, userName: string): { nav: string; page: ReactNode
     return {
       nav: '#/projects',
       page: (
-        <CostHeadPage key={hash} projectId={head[1] as string} costHeadId={head[2] as string} />
+        <CostHeadPage
+          key={hash}
+          projectId={head[1] as string}
+          costHeadId={head[2] as string}
+          canDelete={permissions.includes('admin.expenses.delete')}
+        />
       ),
     };
   const project = /^#\/projects\/([0-9a-f-]{36})$/i.exec(hash);
@@ -69,7 +78,7 @@ function useHash(): string {
 export function App() {
   // undefined = still checking, null = signed out
   const [session, setSession] = useState<SessionInfo | null | undefined>(undefined);
-  const { nav, page } = resolve(useHash(), session?.user.name ?? '');
+  const { nav, page } = resolve(useHash(), session?.user.name ?? '', session?.permissions ?? []);
 
   useEffect(() => {
     fetchSession().then(setSession, () => setSession(null));

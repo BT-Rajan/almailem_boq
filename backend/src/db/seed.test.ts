@@ -46,14 +46,14 @@ describe.skipIf(!hasTestDb)('access seed (real MariaDB)', () => {
 
   it('seeds the four system roles, the DOMAIN.md permissions and the mapping', async () => {
     const seed = await loadAccessSeed(ACCESS_SEED_FILE);
-    expect(await seedAccess(db.pool, seed)).toEqual({ roles: 4, permissions: 21 });
+    expect(await seedAccess(db.pool, seed)).toEqual({ roles: 4, permissions: 22 });
 
     const roles = await rolesRepository(db.pool).list();
     expect(roles.map((r) => r.name)).toEqual(['Accountant', 'Admin', 'Project Manager', 'Viewer']);
     expect(roles.every((r) => r.isSystem)).toBe(true);
-    expect(await permissionsRepository(db.pool).list()).toHaveLength(21);
+    expect(await permissionsRepository(db.pool).list()).toHaveLength(22);
 
-    expect(await codesFor('Admin')).toHaveLength(21);
+    expect(await codesFor('Admin')).toHaveLength(22);
     expect(await codesFor('Project Manager')).toHaveLength(13);
     expect(await codesFor('Accountant')).toEqual(await codesFor('Project Manager'));
     expect((await codesFor('Accountant')).some((c) => c.startsWith('admin.'))).toBe(false);

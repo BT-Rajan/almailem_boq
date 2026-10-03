@@ -1,9 +1,17 @@
-import { formatFils, formatUtilisation, type BoqRow, type ProjectBoq } from '@boq/shared';
+import {
+  formatFils,
+  formatUtilisation,
+  inProjectSummary,
+  type BoqRow,
+  type ProjectBoq,
+} from '@boq/shared';
+import { navigate } from './navigate';
 import { StatusDot } from './StatusDot';
 
 /**
- * Budget > Actual > Remaining > % Used > Status > Action, per cost head, with the project total.
- * Every figure and status is the server's (domain/metrics, domain/control); this only formats.
+ * The project summary: Approved Estimate > Actual > Remaining > Utilisation > Status > Action, one
+ * row per approved cost head, with the project total. Every figure and status is the server's
+ * (domain/metrics, domain/control); this only formats. A row opens that head's expenses.
  */
 export function BoqTable(props: {
   boq: ProjectBoq;
@@ -13,32 +21,46 @@ export function BoqTable(props: {
 }) {
   const { boq, onEdit, projectId } = props;
   const t = boq.total;
+  const rows = boq.rows.filter(inProjectSummary);
+  const open = (r: BoqRow) =>
+    projectId && navigate(`#/projects/${projectId}/heads/${r.costHead.id}`);
   return (
     <div className="table-scroll">
       <table className="table money">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Cost head</th>
-            <th className="num">Budget</th>
+            <th>Cost Code</th>
+            <th>Cost Head</th>
+            <th className="num">Approved Estimate</th>
             <th className="num">Actual</th>
             <th className="num">Remaining</th>
-            <th className="num">Used</th>
+            <th className="num">Utilisation %</th>
             <th>Status</th>
             <th className="num">Action</th>
           </tr>
         </thead>
         <tbody>
-          {boq.rows.map((r) => (
-            <tr key={r.costHead.id} className={r.costHead.active ? undefined : 'inactive'}>
-              <td>{r.costHead.code}</td>
-              <td className="name" title={r.costHead.name}>
+          {rows.map((r) => (
+            <tr
+              key={r.costHead.id}
+              className={
+                [projectId && 'clickable', !r.costHead.active && 'inactive']
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+              onClick={() => open(r)}
+            >
+              <td>{r.costHead.systemNo}</td>
+              {/* The head's own code leads the (width-capped) name cell, so the table still fits. */}
+              <td className="name" title={`${r.costHead.code} · ${r.costHead.name}`}>
+                <span className="muted">{r.costHead.code}</span>{' '}
                 {projectId ? (
                   <a href={`#/projects/${projectId}/heads/${r.costHead.id}`}>{r.costHead.name}</a>
                 ) : (
                   r.costHead.name
                 )}
                 {!r.costHead.active && <span className="muted"> (inactive)</span>}
+                {!r.inBudget && <span className="muted"> (not in budget)</span>}
               </td>
               <td className="num">{formatFils(r.metrics.budget)}</td>
               <td className="num">{formatFils(r.metrics.actual)}</td>
@@ -50,6 +72,14 @@ export function BoqTable(props: {
                 <StatusDot status={r.status} />
               </td>
               <td className="num">
+                {!onEdit && projectId && (
+                  <a
+                    href={`#/projects/${projectId}/heads/${r.costHead.id}`}
+                    aria-label={`Open ${r.costHead.systemNo}`}
+                  >
+                    Open
+                  </a>
+                )}
                 {onEdit && boq.editable && (
                   <button
                     type="button"
@@ -62,10 +92,10 @@ export function BoqTable(props: {
               </td>
             </tr>
           ))}
-          {boq.rows.length === 0 && (
+          {rows.length === 0 && (
             <tr>
               <td colSpan={8} className="muted">
-                No cost heads yet. An administrator adds them in Cost heads.
+                No approved cost heads yet.
               </td>
             </tr>
           )}

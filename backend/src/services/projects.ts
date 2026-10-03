@@ -54,6 +54,7 @@ export function createProjectService(pool: DbPool) {
     const status = statusOf(p);
     return {
       id: p.id,
+      systemNo: p.systemNo,
       code: p.code,
       name: p.name,
       status,
@@ -78,6 +79,7 @@ export function createProjectService(pool: DbPool) {
       return {
         items: rows.map((p) => ({
           id: p.id,
+          systemNo: p.systemNo,
           code: p.code,
           name: p.name,
           status: statusOf(p),

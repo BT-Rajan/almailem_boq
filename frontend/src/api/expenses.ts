@@ -4,6 +4,7 @@ import {
   type CostHeadDetail,
   type CreateExpenseRequest,
   type Expense,
+  type ExpenseDetail,
   type EXPENSE_SORTS,
   type ListParams,
   type UpdateExpenseRequest,
@@ -23,10 +24,16 @@ export const getCostHeadDetail = (
     'GET',
     `${base(projectId)}/cost-heads/${encodeURIComponent(costHeadId)}${queryString(p)}`,
   );
+/** One expense with its project, cost head and history (deleted ones too, marked deleted). */
+export const getExpenseDetail = (projectId: string, id: string) =>
+  api<ExpenseDetail>('GET', one(projectId, id));
 export const createExpense = (projectId: string, body: CreateExpenseRequest) =>
   api<Expense>('POST', `${base(projectId)}/expenses`, body);
 export const updateExpense = (projectId: string, id: string, body: UpdateExpenseRequest) =>
   api<Expense>('PATCH', one(projectId, id), body);
+/** Administrators only (server): the expense leaves every list and figure; its audit stays. */
+export const deleteExpense = (projectId: string, id: string) =>
+  api<{ deleted: true }>('DELETE', one(projectId, id));
 export const reverseExpense = (projectId: string, id: string, reason: string) =>
   api<Expense>('POST', `${one(projectId, id)}/reverse`, { reason });
 export const uploadAttachment = (projectId: string, id: string, file: File) =>

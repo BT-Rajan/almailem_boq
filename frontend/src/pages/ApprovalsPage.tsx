@@ -14,6 +14,7 @@ import { approvalStatusLabel, formatDate } from '../components/format';
 import { Pager, SortHeader, useList } from '../components/list';
 import { Figures } from '../components/Figures';
 import { ErrorText, SlideOver } from '../components/SlideOver';
+import { BudgetApprovals } from './BudgetApprovals';
 import { StatusDot } from '../components/StatusDot';
 
 /**
@@ -22,7 +23,39 @@ import { StatusDot } from '../components/StatusDot';
  * Who asked and when are in the reason's tooltip, so the money columns and Action fit a landscape
  * iPad without scrolling.
  */
+/** Approvals: spend past the approval level, and project budgets (cost structures). */
 export function ApprovalsPage() {
+  const [kind, setKind] = useState<'spend' | 'budget'>('spend');
+  return (
+    <section className="panel">
+      <div className="toolbar">
+        <h1>Approvals</h1>
+      </div>
+      <div className="tabs" role="tablist">
+        {(
+          [
+            ['spend', 'Spend'],
+            ['budget', 'Budgets'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={kind === key}
+            className={kind === key ? 'active' : undefined}
+            onClick={() => setKind(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {kind === 'spend' ? <SpendApprovals /> : <BudgetApprovals />}
+    </section>
+  );
+}
+
+function SpendApprovals() {
   const [status, setStatus] = useState<ApprovalStatus>('PENDING');
   const list = useList(
     useCallback(
@@ -39,9 +72,8 @@ export function ApprovalsPage() {
 
   const d = list.data;
   return (
-    <section className="panel">
+    <>
       <div className="toolbar">
-        <h1>Approvals</h1>
         <select
           aria-label="Show"
           value={status}
@@ -110,7 +142,7 @@ export function ApprovalsPage() {
           <DecisionForm item={deciding} onDone={done} />
         </SlideOver>
       )}
-    </section>
+    </>
   );
 }
 

@@ -10,6 +10,7 @@ export const PERMISSION_CODES = [
   'admin.audit.view',
   'admin.projects.access',
   'admin.projects.delete',
+  'admin.expenses.delete',
   'project.create',
   'project.edit',
   'project.view',

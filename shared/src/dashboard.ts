@@ -6,6 +6,8 @@ import type { ProjectStatus } from './projects';
 /** Home dashboard. Every figure and status is the server's (domain/metrics, domain/control). */
 export type DashboardProject = {
   id: string;
+  /** System number, P00001.... */
+  systemNo: string;
   code: string;
   name: string;
   projectStatus: ProjectStatus;

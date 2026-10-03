@@ -5,7 +5,9 @@ import {
   type BudgetProjection,
   type CostHeadDetail,
   type CreateExpenseInput,
+  type DeletedExpenseRef,
   type Expense,
+  type ExpenseDetail,
   type ExpensePage,
   type ListExpensesQuery,
   type UpdateExpenseInput,
@@ -19,17 +21,20 @@ import { expenseStatusFor, INITIAL_APPROVAL_STATUS } from '../domain/approval-st
 import { AppError } from '../errors/app-error';
 import {
   costHeadsRepository,
+  estimatesRepository,
   expensesRepository,
+  projectsRepository,
   thresholdsRepository,
   type ExpenseRecord,
 } from '../repositories';
 import { openApprovalRequest } from './approvals';
+import { expenseHistory } from './expense-history';
 import { loadBoq } from './estimates';
 import { headRow, lockOpenProject, projectSpend } from './spend';
 
 /**
- * Expenses (bills): record, correct, reverse, attach. Never deleted: a reversal is a negative entry
- * linked to the original, and the original stops counting toward Actual.
+ * Expenses (bills): record, correct, reverse, attach. Corrections are reversals: a negative entry
+ * linked to the original, which stops counting toward Actual. Only an administrator deletes (soft).
  * An expense that would take its head to the approval level is held for approval (./approvals).
  * Lock order everywhere: project row, then expense row (./spend).
  */
@@ -62,8 +67,21 @@ function toExpense(e: ExpenseRecord): Expense {
     createdAt: e.createdAt.toISOString(),
     reversalOf: e.reversalOf,
     reversedAt: e.reversedAt?.toISOString() ?? null,
+    modifiedBy: e.updatedBy ? { id: e.updatedBy, name: e.updatedByName ?? '' } : null,
+    modifiedAt: e.updatedAt.toISOString(),
     status: e.status,
     approval: e.approval,
+  };
+}
+
+function toDeletedRef(e: ExpenseRecord): DeletedExpenseRef {
+  return {
+    id: e.id,
+    invoiceNo: e.invoiceNo,
+    expenseDate: e.expenseDate,
+    amountFils: e.amountFils,
+    deletedBy: e.deletedBy ? { id: e.deletedBy, name: e.deletedByName ?? '' } : null,
+    deletedAt: (e.deletedAt ?? e.updatedAt).toISOString(),
   };
 }
 
@@ -78,12 +96,19 @@ function requirePosted(e: ExpenseRecord, doing: string): void {
   }
 }
 
-/** New spend may only go to an active head. */
-async function requireActiveHead(tx: Db, costHeadId: string): Promise<void> {
+/** New spend may only go to an active head that is in the project's approved budget (D31). */
+async function requireBudgetHead(tx: Db, projectId: string, costHeadId: string): Promise<void> {
   const head = await costHeadsRepository(tx).findById(costHeadId);
   if (!head) throw AppError.notFound('Cost head not found');
   if (!head.active)
     throw AppError.conflict(`Cost head ${head.code} is inactive and cannot take spend`);
+  if (!(await estimatesRepository(tx).listForProject(projectId)).has(costHeadId)) {
+    throw new AppError(
+      'HEAD_NOT_IN_BUDGET',
+      `Cost head ${head.systemNo} is not in this project's approved budget`,
+      409,
+    );
+  }
 }
 
 /** Lock and re-read an expense of this project. Re-reading after the lock sees the latest state. */
@@ -154,11 +179,55 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
       ]);
       const row = headRow(boq, costHeadId, thresholds);
       return {
-        costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+        costHead: {
+          id: head.id,
+          systemNo: head.systemNo,
+          code: head.code,
+          name: head.name,
+          active: head.active,
+        },
         metrics: row.metrics,
         status: row.status,
+        inBudget: boq.rows.some((r) => r.costHead.id === costHeadId && r.inBudget),
         expenses: await page(projectId, { ...query, costHeadId }),
+        deleted: (await expensesRepository(pool).listDeleted(projectId, costHeadId)).map(
+          toDeletedRef,
+        ),
         editable: boq.editable,
+      };
+    },
+
+    /**
+     * One expense of this project with its project, cost head and history. A deleted expense is
+     * still shown (marked deleted), so its record and history stay reachable.
+     */
+    async detail(projectId: string, id: string): Promise<ExpenseDetail> {
+      const e = await expensesRepository(pool).findInProject(projectId, id, {
+        includeDeleted: true,
+      });
+      if (!e) throw AppError.notFound('Expense not found');
+      const [project, head, history] = await Promise.all([
+        projectsRepository(pool).findById(projectId),
+        costHeadsRepository(pool).findById(e.costHeadId, { includeDeleted: true }),
+        expenseHistory(pool, e),
+      ]);
+      if (!project || !head) throw AppError.notFound('Expense not found');
+      return {
+        expense: toExpense(e),
+        project: {
+          id: project.id,
+          systemNo: project.systemNo,
+          code: project.code,
+          name: project.name,
+        },
+        costHead: { id: head.id, systemNo: head.systemNo, code: head.code, name: head.name },
+        deleted: e.deletedAt
+          ? {
+              by: e.deletedBy ? { id: e.deletedBy, name: e.deletedByName ?? '' } : null,
+              at: e.deletedAt.toISOString(),
+            }
+          : null,
+        history,
       };
     },
 
@@ -186,7 +255,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
     ): Promise<Expense> {
       return withTransaction(pool, async (tx) => {
         await lockOpenProject(tx, projectId);
-        await requireActiveHead(tx, input.costHeadId);
+        await requireBudgetHead(tx, projectId, input.costHeadId);
         const projection = await projectSpend(
           tx,
           projectId,
@@ -250,12 +319,12 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         const changed = EDITABLE.filter((f) => patch[f] !== undefined && patch[f] !== current[f]);
         if (!changed.length) return toExpense(current);
         if (changed.includes('costHeadId') && patch.costHeadId)
-          await requireActiveHead(tx, patch.costHeadId);
+          await requireBudgetHead(tx, projectId, patch.costHeadId);
         await refuseEditPastApproval(tx, projectId, current, patch);
 
         const before = Object.fromEntries(changed.map((f) => [f, current[f]]));
         const after = Object.fromEntries(changed.map((f) => [f, patch[f]]));
-        await expensesRepository(tx).update(id, after);
+        await expensesRepository(tx).update(id, after, actor?.userId ?? null);
         await recordAudit(tx, 'expense.updated', actor, expenseEntity(id), before, after);
         return get(tx, projectId, id);
       });
@@ -287,7 +356,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
           createdBy: actor.userId,
           reversalOf: original.id,
         });
-        await expensesRepository(tx).markReversed(original.id);
+        await expensesRepository(tx).markReversed(original.id, actor.userId);
         await recordAudit(
           tx,
           'expense.reversed',
@@ -322,12 +391,11 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
           const e = await lockExpense(tx, projectId, id);
           if (e.reversalOf) throw AppError.conflict('A reversal entry has no attachment');
           replaced = e.attachment?.key ?? null;
-          await expensesRepository(tx).setAttachment(id, {
-            key,
-            type,
-            size: upload.data.length,
-            name,
-          });
+          await expensesRepository(tx).setAttachment(
+            id,
+            { key, type, size: upload.data.length, name },
+            actor?.userId ?? null,
+          );
           await recordAudit(
             tx,
             'expense.attachment_added',
@@ -344,6 +412,41 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         await storage.remove(key); // never leave an unreferenced file behind
         throw err;
       }
+    },
+
+    /**
+     * Administrators only (route): soft-delete an expense entered by mistake. It leaves Actual and
+     * every list; the row, its bill and its audit history stay. A held expense is settled through
+     * its approval request instead, and a reversed pair is already neutral.
+     */
+    async remove(actor: { userId: string }, projectId: string, id: string): Promise<void> {
+      await withTransaction(pool, async (tx) => {
+        await lockOpenProject(tx, projectId);
+        const e = await lockExpense(tx, projectId, id);
+        if (e.reversalOf || e.reversedAt) {
+          throw AppError.conflict('A reversed expense or a reversal entry cannot be deleted');
+        }
+        if (e.status === 'PENDING_APPROVAL') {
+          throw AppError.conflict(
+            'This expense is waiting for approval: decide on its request first',
+          );
+        }
+        await expensesRepository(tx).softDelete(id, actor.userId);
+        await recordAudit(
+          tx,
+          'expense.deleted',
+          actor,
+          expenseEntity(id),
+          {
+            costHeadId: e.costHeadId,
+            vendor: e.vendor,
+            invoiceNo: e.invoiceNo,
+            amountFils: e.amountFils,
+            status: e.status,
+          },
+          { deleted: true },
+        );
+      });
     },
 
     async openAttachment(

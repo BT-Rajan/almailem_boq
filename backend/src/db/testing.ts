@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import mysql, { type Pool } from 'mysql2/promise';
 import { connectionOptions, createPool } from './pool';
+import { nextSystemNumber } from '../repositories/system-numbers';
 
 /**
  * Test support: each suite gets its own throwaway MariaDB database, created from
@@ -65,20 +66,34 @@ export async function seedPortfolio(
     ).map((r) => r.id);
 
   const pad = (n: number) => String(n).padStart(4, '0');
+  // System numbers come from the real counter, so later creates in the same database cannot collide.
+  const numbers = async (kind: 'project' | 'cost_head', n: number) => {
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) out.push(await nextSystemNumber(pool, kind));
+    return out;
+  };
+  const headNos = await numbers('cost_head', opts.heads);
+  const projectNos = await numbers('project', opts.projects);
   await insertMany(
-    'INSERT INTO cost_heads (code, name, display_order)',
-    Array.from({ length: opts.heads }, (_, i) => [`${prefix}H${pad(i)}`, `Seed head ${i}`, i + 1]),
-    3,
+    'INSERT INTO cost_heads (system_no, code, name, display_order)',
+    Array.from({ length: opts.heads }, (_, i) => [
+      headNos[i],
+      `${prefix}H${pad(i)}`,
+      `Seed head ${i}`,
+      i + 1,
+    ]),
+    4,
   );
   await insertMany(
-    'INSERT INTO projects (code, name, owner_user_id, status)',
+    'INSERT INTO projects (system_no, code, name, owner_user_id, status)',
     Array.from({ length: opts.projects }, (_, i) => [
+      projectNos[i],
       `${prefix}P${pad(i)}`,
       `Seed project ${i}`,
       opts.ownerUserId,
       'active',
     ]),
-    4,
+    5,
   );
   const headIds = await ids('cost_heads', 'code', `${prefix}H%`);
   const projectIds = await ids('projects', 'code', `${prefix}P%`);

@@ -17,7 +17,12 @@ const H = '44444444-4444-4444-8444-444444444444';
 const metrics = { budget: 1_000_000, actual: 800_000, remaining: 200_000, utilisationBp: 8000 };
 const boq = {
   rows: [
-    { costHead: { id: H, code: 'H1', name: 'Head one', active: true }, metrics, status: 'WARNING' },
+    {
+      costHead: { id: H, systemNo: 'C001', code: 'H1', name: 'Head one', active: true },
+      inBudget: true,
+      metrics,
+      status: 'WARNING',
+    },
   ],
   total: metrics,
   totalStatus: 'WARNING',
@@ -31,6 +36,8 @@ const base = {
   attachment: null,
   createdBy: { id: 'u1', name: 'Ada' },
   createdAt: '2026-03-15T08:00:00.000Z',
+  modifiedBy: null,
+  modifiedAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
   status: 'POSTED',
@@ -63,6 +70,8 @@ const detail = {
   metrics,
   status: 'WARNING',
   expenses: { items: [reversal, reversed, live], total: 3, page: 1, pageSize: 50 },
+  inBudget: true,
+  deleted: [],
   editable: true,
 };
 
@@ -76,7 +85,7 @@ describe('Add expense form', () => {
       [`PUT /api/projects/${P}/expenses/new/attachment`]: () => ({ data: live }),
     });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={onSaved} />);
-    await screen.findByRole('option', { name: 'H1 · Head one' });
+    await screen.findByRole('option', { name: 'C001 · Head one' });
     fireEvent.change(screen.getByLabelText('Vendor'), { target: { value: 'Acme' } });
     fireEvent.change(screen.getByLabelText('Invoice no.'), { target: { value: 'INV-9' } });
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-03-15' } });
@@ -113,7 +122,7 @@ describe('Add expense form', () => {
       }),
     });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
-    await screen.findByRole('option', { name: 'H1 · Head one' });
+    await screen.findByRole('option', { name: 'C001 · Head one' });
     fireEvent.change(screen.getByLabelText('Vendor'), { target: { value: 'A' } });
     fireEvent.change(screen.getByLabelText('Invoice no.'), { target: { value: 'B' } });
     fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '1' } });
@@ -129,10 +138,14 @@ describe('Add expense form', () => {
   it('will not submit an invalid amount', async () => {
     mockApi({ [`GET /api/projects/${P}/boq`]: () => ({ data: boq }) });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
-    fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '-3' } });
-    expect(
-      (screen.getByRole('button', { name: 'Add expense' }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    for (const value of ['-3', '1.0005']) {
+      // Kuwaiti dinars have 3 decimals: a 4th is refused, never rounded.
+      fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value } });
+      expect(
+        (screen.getByRole('button', { name: 'Add expense' }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+    }
+    expect(screen.getByText(/at most 3 decimals/)).toBeTruthy();
   });
 });
 
@@ -174,6 +187,100 @@ describe('Cost-head detail', () => {
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ reason: 'Entered twice' }),
     );
   });
+  it('offers Delete only to an administrator, and deletes after confirmation', async () => {
+    const calls = mockApi({
+      [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({ data: detail }),
+      [`DELETE /api/projects/${P}/expenses/e1`]: () => ({ data: { deleted: true } }),
+    });
+    const { unmount } = render(<CostHeadPage projectId={P} costHeadId={H} />);
+    await screen.findByRole('button', { name: 'Edit' });
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    unmount();
+
+    vi.stubGlobal('confirm', () => true);
+    render(<CostHeadPage projectId={P} costHeadId={H} canDelete />);
+    expect(await screen.findAllByRole('button', { name: 'Delete' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
+  });
+});
+
+describe('Expense detail', () => {
+  const expenseDetail = (over: Record<string, unknown> = {}) => ({
+    expense: {
+      ...live,
+      modifiedBy: { id: 'u2', name: 'Bob' },
+      modifiedAt: '2026-03-16T09:00:00.000Z',
+    },
+    project: { id: P, systemNo: 'P00001', code: 'ALM-1', name: 'Villas' },
+    costHead: { id: H, systemNo: 'C001', code: 'H1', name: 'Head one' },
+    deleted: null,
+    history: [
+      {
+        action: 'CREATED',
+        by: { id: 'u1', name: 'Ada' },
+        at: '2026-03-15T08:00:00.000Z',
+        changes: [{ field: 'amountFils', from: null, to: 700_000 }],
+        note: null,
+      },
+      {
+        action: 'MODIFIED',
+        by: { id: 'u2', name: 'Bob' },
+        at: '2026-03-16T09:00:00.000Z',
+        changes: [{ field: 'amountFils', from: 700_000, to: 800_000 }],
+        note: null,
+      },
+    ],
+    ...over,
+  });
+
+  it('tapping an expense shows its full record, bill and history', async () => {
+    mockApi({
+      [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({ data: detail }),
+      [`GET /api/projects/${P}/expenses/e1`]: () => ({ data: expenseDetail() }),
+    });
+    render(<CostHeadPage projectId={P} costHeadId={H} />);
+    const row = (await screen.findByText('INV-1')).closest('tr') as HTMLElement;
+    fireEvent.click(row);
+    const history = await screen.findByRole('list', { name: 'History' });
+    expect(history.textContent).toContain('Amount: 700.000 KWD → 800.000 KWD');
+    expect(screen.getByText('P00001 · Villas')).toBeTruthy();
+    expect(screen.getByText('C001 · Head one')).toBeTruthy();
+    expect(screen.getByText('Bob')).toBeTruthy(); // modified by
+    expect(screen.getByRole('link', { name: 'View bill.pdf' }).getAttribute('href')).toBe(
+      `/api/projects/${P}/expenses/e1/attachment`,
+    );
+  });
+
+  it('says so when no bill was uploaded, and marks a deleted expense', async () => {
+    mockApi({
+      [`GET /api/projects/${P}/cost-heads/${H}`]: () => ({
+        data: {
+          ...detail,
+          deleted: [
+            {
+              id: 'e7',
+              invoiceNo: 'INV-7',
+              expenseDate: '2026-03-10',
+              amountFils: 5_000,
+              deletedBy: { id: 'u0', name: 'Admin' },
+              deletedAt: '2026-03-11T08:00:00.000Z',
+            },
+          ],
+        },
+      }),
+      [`GET /api/projects/${P}/expenses/e7`]: () => ({
+        data: expenseDetail({
+          expense: { ...live, id: 'e7', attachment: null, modifiedBy: null },
+          deleted: { by: { id: 'u0', name: 'Admin' }, at: '2026-03-11T08:00:00.000Z' },
+        }),
+      }),
+    });
+    render(<CostHeadPage projectId={P} costHeadId={H} />);
+    fireEvent.click(await screen.findByRole('button', { name: /INV-7/ }));
+    expect(await screen.findByText('No bill uploaded')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toMatch(/Deleted by Admin/);
+  });
 });
 
 describe('Add Expense preview', () => {
@@ -196,7 +303,7 @@ describe('Add Expense preview', () => {
       }),
     });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
-    await screen.findByRole('option', { name: 'H1 · Head one' });
+    await screen.findByRole('option', { name: 'C001 · Head one' });
     fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '250' } });
     const preview = await screen.findByRole('status', { name: 'After this expense' });
     expect(preview.textContent).toContain('Actual 1,050.000');
@@ -237,7 +344,7 @@ describe('approval of spend past the approval level', () => {
       }),
     });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={onSaved} />);
-    await screen.findByRole('option', { name: 'H1 · Head one' });
+    await screen.findByRole('option', { name: 'C001 · Head one' });
     fireEvent.change(screen.getByLabelText('Vendor'), { target: { value: 'Acme' } });
     fireEvent.change(screen.getByLabelText('Invoice no.'), { target: { value: 'INV-9' } });
     fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '250' } });
@@ -263,7 +370,7 @@ describe('approval of spend past the approval level', () => {
       [`POST /api/projects/${P}/expenses`]: () => ({ status: 201, data: live }),
     });
     render(<ExpenseForm projectId={P} costHeadId={H} onSaved={() => {}} />);
-    await screen.findByRole('option', { name: 'H1 · Head one' });
+    await screen.findByRole('option', { name: 'C001 · Head one' });
     fireEvent.change(screen.getByLabelText('Amount (KWD)'), { target: { value: '10' } });
     await screen.findByRole('status', { name: 'After this expense' });
     expect(screen.queryByLabelText(/Reason for approval/)).toBeNull();
@@ -298,7 +405,7 @@ describe('approval of spend past the approval level', () => {
     render(<CostHeadPage projectId={P} costHeadId={H} />);
     const row = (await screen.findByText('INV-9')).closest('tr') as HTMLElement;
     expect(row.textContent).toContain('Awaiting approval');
-    expect(row.className).toBe('inactive');
+    expect(row.className).toBe('clickable inactive');
     expect(within(row).queryByRole('button', { name: 'Edit' })).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Reverse' })).toBeNull();
     fireEvent.click(within(row).getByRole('button', { name: 'Cancel request' }));

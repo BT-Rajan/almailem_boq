@@ -29,6 +29,7 @@ export function ProjectsPage() {
         <table className="table">
           <thead>
             <tr>
+              <th>No.</th>
               <SortHeader label="Code" sortKey="code" list={list} />
               <SortHeader label="Name" sortKey="name" list={list} />
               <SortHeader label="Status" sortKey="status" list={list} />
@@ -40,6 +41,7 @@ export function ProjectsPage() {
           <tbody>
             {data?.items.map((p) => (
               <tr key={p.id} className="clickable" onClick={() => navigate(`#/projects/${p.id}`)}>
+                <td>{p.systemNo}</td>
                 <td>
                   <a href={`#/projects/${p.id}`}>{p.code}</a>
                 </td>
@@ -52,7 +54,7 @@ export function ProjectsPage() {
             ))}
             {data && data.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   No projects found
                 </td>
               </tr>

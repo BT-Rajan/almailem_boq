@@ -58,9 +58,16 @@ export async function loadBoq(
   const rows = lines.map(({ head, figures }) => {
     const metrics = budgetMetrics(figures);
     return {
-      costHead: { id: head.id, code: head.code, name: head.name, active: head.active },
+      costHead: {
+        id: head.id,
+        systemNo: head.systemNo,
+        code: head.code,
+        name: head.name,
+        active: head.active,
+      },
       metrics,
       status: calculateBudgetStatus(metrics.utilisationBp, thresholds),
+      inBudget: budgets.has(head.id),
     };
   });
   return {
@@ -71,6 +78,54 @@ export async function loadBoq(
   };
 }
 
+/** Lock the project row and check its budgets may still change. */
+export async function lockProjectForBudget(tx: Db, projectId: string): Promise<void> {
+  const locked = await projectsRepository(tx).lockById(projectId);
+  if (!locked) throw AppError.notFound('Project not found');
+  const status = projectStatusSchema.parse(locked.status);
+  if (!acceptsFinancialChanges(status)) {
+    throw new AppError('PROJECT_CLOSED', `Budgets of a ${status} project cannot change`, 409);
+  }
+}
+
+/**
+ * Write budgets (the authoritative project_estimates) for some heads, inside the caller's
+ * transaction with the project locked. Each real change writes one audit row with before/after;
+ * unchanged rows write nothing.
+ */
+export async function writeEstimates(
+  tx: Db,
+  actor: AuditActor,
+  projectId: string,
+  rows: { costHeadId: string; amountFils: number }[],
+  opts: { rowIsMembership?: boolean } = {},
+): Promise<void> {
+  const estimates = estimatesRepository(tx);
+  const current = await estimates.listForProject(projectId);
+  for (const row of rows) {
+    const head = await costHeadsRepository(tx).findById(row.costHeadId);
+    if (!head) throw AppError.notFound('Cost head not found');
+    const amount = fils(row.amountFils);
+    // For a structure (opts.rowIsMembership), no row means "not in the budget", which differs
+    // from a selected head with a budget of 0; for a direct edit, no row is simply 0.
+    const stored = current.get(head.id);
+    const before = stored ?? (opts.rowIsMembership ? null : fils(0));
+    if (before === amount) continue; // unchanged, even on a head retired since
+    if (!head.active && amount !== 0) {
+      throw AppError.conflict(`Cost head ${head.code} is inactive and cannot take a budget`);
+    }
+    await estimates.upsert(projectId, head.id, amount);
+    await recordAudit(
+      tx,
+      'estimate.changed',
+      actor,
+      { type: 'project', id: projectId },
+      { costHeadId: head.id, code: head.code, amountFils: before },
+      { costHeadId: head.id, code: head.code, amountFils: amount },
+    );
+  }
+}
+
 export function createEstimateService(pool: DbPool) {
   return {
     getBoq(projectId: string, order: BoqOrder = 'display'): Promise<ProjectBoq> {
@@ -78,8 +133,8 @@ export function createEstimateService(pool: DbPool) {
     },
 
     /**
-     * Set budgets for some heads in one transaction. Each real change writes one audit row with
-     * before/after; unchanged rows write nothing. 0 clears a budget.
+     * Set budgets for some heads in one transaction (administrators only: everyone else proposes
+     * a cost structure for approval). 0 clears a budget.
      */
     async setEstimates(
       actor: AuditActor,
@@ -88,37 +143,8 @@ export function createEstimateService(pool: DbPool) {
     ): Promise<ProjectBoq> {
       return withTransaction(pool, async (tx) => {
         // Lock the project first: concurrent budget edits on it run one after the other.
-        const locked = await projectsRepository(tx).lockById(projectId);
-        if (!locked) throw AppError.notFound('Project not found');
-        const project = { ...locked, status: projectStatusSchema.parse(locked.status) };
-        if (!acceptsFinancialChanges(project.status)) {
-          throw new AppError(
-            'PROJECT_CLOSED',
-            `Budgets of a ${project.status} project cannot change`,
-            409,
-          );
-        }
-        const estimates = estimatesRepository(tx);
-        const current = await estimates.listForProject(projectId);
-        for (const row of request.estimates) {
-          const head = await costHeadsRepository(tx).findById(row.costHeadId);
-          if (!head) throw AppError.notFound('Cost head not found');
-          const amount = fils(row.amountFils);
-          if (!head.active && amount !== 0) {
-            throw AppError.conflict(`Cost head ${head.code} is inactive and cannot take a budget`);
-          }
-          const before = current.get(head.id) ?? fils(0);
-          if (before === amount) continue;
-          await estimates.upsert(projectId, head.id, amount);
-          await recordAudit(
-            tx,
-            'estimate.changed',
-            actor,
-            { type: 'project', id: projectId },
-            { costHeadId: head.id, code: head.code, amountFils: before },
-            { costHeadId: head.id, code: head.code, amountFils: amount },
-          );
-        }
+        await lockProjectForBudget(tx, projectId);
+        await writeEstimates(tx, actor, projectId, request.estimates);
         return loadBoq(tx, projectId);
       });
     },

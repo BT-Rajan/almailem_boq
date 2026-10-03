@@ -21,9 +21,28 @@ export type BudgetMetrics = {
   utilisationBp: number;
 };
 
-export type BoqCostHead = { id: string; code: string; name: string; active: boolean };
+export type BoqCostHead = {
+  id: string;
+  /** System number, C001.... */
+  systemNo: string;
+  code: string;
+  name: string;
+  active: boolean;
+};
 /** Status comes from domain/control, using the thresholds in Admin > Approval Rules. */
-export type BoqRow = { costHead: BoqCostHead; metrics: BudgetMetrics; status: BudgetStatus };
+export type BoqRow = {
+  costHead: BoqCostHead;
+  metrics: BudgetMetrics;
+  status: BudgetStatus;
+  /** In the project's approved budget: only these heads take expenses. */
+  inBudget: boolean;
+};
+/**
+ * Rows of the project summary: the approved budget heads, plus any other head still carrying
+ * spend (from before budgets were approved), so the rows always add up to the server's total.
+ */
+export const inProjectSummary = (r: BoqRow): boolean => r.inBudget || r.metrics.actual !== 0;
+
 export type ProjectBoq = {
   rows: BoqRow[];
   total: BudgetMetrics;

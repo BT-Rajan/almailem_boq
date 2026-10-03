@@ -287,6 +287,21 @@ a {
 .facts.wide {
   grid-template-columns: 110px 1fr;
 }
+/* An expense's history: one compact entry per action, oldest first. */
+.facts a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.history li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
 .prewrap {
   white-space: pre-wrap;
 }
@@ -1050,6 +1065,72 @@ a.tile:hover {
   }
 }
 
+/* ---------- Cost structure: select heads (two columns), notices ---------- */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.check-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  min-width: 0;
+}
+.check-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+.check-card.locked {
+  cursor: default;
+}
+.check-card input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+}
+.check-card .code {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.check-card .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .check-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.notice {
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-50);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+.notice.pending {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+.notice.rejected {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
 /* ---------- Touch devices (iPad): 44 px targets, bottom sheets, thumb-reach actions ---------- */
 @media (pointer: coarse) {
   :root {
@@ -1081,6 +1162,7 @@ a.tile:hover {
   }
   .side-nav a,
   .card-header a,
+  .notice a,
   .table a,
   .toolbar a,
   .actions a,
@@ -1144,5 +1226,127 @@ a.tile:hover {
   .icon-button {
     width: 44px;
     height: 44px;
+  }
+}
+
+/* Deleted expenses under a cost head: folded away, each one opens its record and history. */
+.deleted-expenses {
+  margin-top: 12px;
+}
+.deleted-expenses summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+.deleted-expenses ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deleted-expenses li {
+  padding: 4px 0;
+}
+
+/* Estimate vs Actual chart (project summary): plain bars, exact values beside them. */
+.ea-chart {
+  --ea-est: #0f9fb0;
+  --ea-act: var(--accent);
+  margin: 16px 0 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 8px 12px;
+  min-width: 0;
+}
+.ea-chart figcaption {
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0 8px;
+}
+.ea-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.ea-swatch {
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+}
+.ea-swatch.est,
+.ea-bar.est {
+  background: var(--ea-est);
+}
+.ea-swatch.act,
+.ea-bar.act {
+  background: var(--ea-act);
+}
+/* Many heads scroll inside the chart; the page itself never moves sideways. */
+.ea-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.ea-list li + li {
+  border-top: 1px solid var(--border);
+}
+.ea-item {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+.ea-item:hover {
+  background: var(--hover);
+}
+.ea-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ea-bars {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ea-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ea-track {
+  flex: 1;
+  min-width: 0;
+}
+.ea-bar {
+  display: block;
+  height: 10px;
+  min-width: 0;
+  border-radius: 0 4px 4px 0;
+}
+.ea-value {
+  flex: none;
+  width: 120px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.chart-empty {
+  margin-top: 16px;
+}
+@media (max-width: 640px) {
+  .ea-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
 }

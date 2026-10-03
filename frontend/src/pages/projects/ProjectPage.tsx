@@ -1,6 +1,7 @@
-import { useCallback, useState, type FormEvent } from 'react';
-import { formatFils, type BoqRow, type ProjectDetail } from '@boq/shared';
-import { getBoq, setEstimates } from '../../api/estimates';
+import { useCallback, useState } from 'react';
+import { formatFils, type ProjectDetail } from '@boq/shared';
+import { getCostStructure } from '../../api/cost-structure';
+import { getBoq } from '../../api/estimates';
 import {
   addMember,
   changeProjectStatus,
@@ -12,10 +13,11 @@ import {
 } from '../../api/projects';
 import { attempt, useLoad } from '../../api/use-load';
 import { BoqTable } from '../../components/BoqTable';
+import { EstimateActualChart } from '../../components/EstimateActualChart';
 import { Figures } from '../../components/Figures';
 import { formatDate, statusLabel } from '../../components/format';
-import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
+import { ProposalLines } from '../../components/ProposalLines';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { UserPicker } from '../../components/UserPicker';
 import { ExpenseForm } from '../expenses/ExpenseForm';
@@ -23,12 +25,12 @@ import { ProjectForm, toRequest } from './ProjectForm';
 
 type Tab = 'boq' | 'details' | 'members';
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'boq', label: 'BoQ' },
+  { key: 'boq', label: 'Summary' },
   { key: 'details', label: 'Details' },
   { key: 'members', label: 'Members' },
 ];
 
-/** Project page: header, status actions, and the BoQ, Details and Members tabs. */
+/** Project page: header, status actions, and the Summary, Details and Members tabs. */
 export function ProjectPage(props: { id: string }) {
   const { id } = props;
   const project = useLoad(useCallback(() => getProject(id), [id]));
@@ -56,7 +58,7 @@ export function ProjectPage(props: { id: string }) {
         </a>
         <span className="muted">/</span>
         <h1>
-          {p.code} · {p.name}
+          {p.systemNo} · {p.code} · {p.name}
         </h1>
         <span className="tag">{statusLabel(p.status)}</span>
         <span className="spacer" />
@@ -126,6 +128,68 @@ export function ProjectPage(props: { id: string }) {
   );
 }
 
+/**
+ * Where the project's budget stands. The figures above are always the approved budget; a
+ * waiting request is shown here, never counted. Changes are proposed, not made (D31).
+ */
+function BudgetStatus(props: { projectId: string }) {
+  const { projectId } = props;
+  const s = useLoad(useCallback(() => getCostStructure(projectId), [projectId])).data;
+  const [viewing, setViewing] = useState(false);
+  const closeView = useCallback(() => setViewing(false), []);
+  if (!s) return null;
+  const latest = s.latest;
+  const edit = `#/projects/${projectId}/setup/boq`;
+  if (latest?.status === 'PENDING')
+    return (
+      <>
+        <p className="notice pending row" role="status">
+          <span>
+            {s.approved.length ? 'Budget change' : 'Budget'} pending Admin approval: proposed{' '}
+            {formatFils(latest.proposedTotalFils)} KWD, by {latest.requestedBy.name} on{' '}
+            {formatDate(latest.requestedAt.slice(0, 10))}.{' '}
+            {s.approved.length
+              ? `The approved budget (${formatFils(s.approvedTotalFils)} KWD) below stays in force until then.`
+              : 'Nothing below is approved yet.'}
+          </span>
+          <span className="spacer" />
+          <button type="button" onClick={() => setViewing(true)}>
+            View changes
+          </button>
+        </p>
+        {viewing && (
+          <SlideOver title="Pending Admin approval" onClose={closeView} sheet>
+            <ProposalLines proposal={latest} />
+          </SlideOver>
+        )}
+      </>
+    );
+  return (
+    <p
+      className={latest?.status === 'REJECTED' ? 'notice rejected row' : 'notice row'}
+      role="status"
+    >
+      <span>
+        {latest?.status === 'REJECTED'
+          ? `${s.approved.length ? 'Budget change' : 'Budget'} rejected by ${latest.decidedBy?.name ?? ''}: ${latest.decisionComment ?? ''}.${s.approved.length ? ` The approved budget (${formatFils(s.approvedTotalFils)} KWD) is unchanged.` : ' The project has no approved budget.'}`
+          : s.approved.length
+            ? `Budget approved: ${s.approved.length} cost heads, ${formatFils(s.approvedTotalFils)} KWD.`
+            : 'No approved budget yet.'}
+      </span>
+      <span className="spacer" />
+      {s.editable && (
+        <a href={edit}>
+          {latest?.status === 'REJECTED'
+            ? 'Correct and resubmit'
+            : s.approved.length
+              ? 'Propose a change'
+              : 'Set up budget'}
+        </a>
+      )}
+    </p>
+  );
+}
+
 function Boq(props: { projectId: string }) {
   const { projectId } = props;
   const [attentionFirst, setAttentionFirst] = useState(false);
@@ -135,14 +199,17 @@ function Boq(props: { projectId: string }) {
       [projectId, attentionFirst],
     ),
   );
-  const [editing, setEditing] = useState<BoqRow | null>(null);
   const [adding, setAdding] = useState(false);
-  const close = useCallback(() => setEditing(null), []);
   const closeAdd = useCallback(() => setAdding(false), []);
   if (!boq.data) return <ErrorText message={boq.error} />;
   return (
     <>
-      <Figures metrics={boq.data.total} status={boq.data.totalStatus} label="Project figures" />
+      <Figures
+        metrics={boq.data.total}
+        status={boq.data.totalStatus}
+        label="Project figures"
+        totals
+      />
       <div className="row boq-actions">
         <label className="check">
           <input
@@ -153,7 +220,8 @@ function Boq(props: { projectId: string }) {
           Needs attention first
         </label>
         <span className="spacer" />
-        {boq.data.editable && (
+        {/* Expenses only go on approved budget heads: none yet, nothing to add to. */}
+        {boq.data.editable && boq.data.rows.some((r) => r.inBudget) && (
           <button
             type="button"
             className="btn-primary primary-action"
@@ -163,7 +231,9 @@ function Boq(props: { projectId: string }) {
           </button>
         )}
       </div>
-      <BoqTable boq={boq.data} onEdit={setEditing} projectId={projectId} />
+      <BudgetStatus projectId={projectId} />
+      <BoqTable boq={boq.data} projectId={projectId} />
+      <EstimateActualChart boq={boq.data} projectId={projectId} />
       {adding && (
         <SlideOver title="Add expense" onClose={closeAdd} sheet>
           <ExpenseForm
@@ -175,60 +245,7 @@ function Boq(props: { projectId: string }) {
           />
         </SlideOver>
       )}
-      {editing && (
-        <SlideOver title={`Budget: ${editing.costHead.code}`} onClose={close} sheet>
-          <BudgetForm
-            projectId={projectId}
-            row={editing}
-            onSaved={() => {
-              close();
-              boq.reload();
-            }}
-          />
-        </SlideOver>
-      )}
     </>
-  );
-}
-
-function BudgetForm(props: { projectId: string; row: BoqRow; onSaved: () => void }) {
-  const { row } = props;
-  const [text, setText] = useState(row.metrics.budget === 0 ? '' : formatFils(row.metrics.budget));
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const amount = parseKwdInput(text);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (amount === null) return;
-    setBusy(true);
-    const err = await attempt(() =>
-      setEstimates(props.projectId, {
-        estimates: [{ costHeadId: row.costHead.id, amountFils: amount }],
-      }),
-    );
-    setBusy(false);
-    if (err) setError(err);
-    else props.onSaved();
-  };
-
-  return (
-    <form className="form" onSubmit={submit}>
-      <p>{row.costHead.name}</p>
-      <label>
-        Budget (KWD)
-        <input
-          className={amount === null ? 'amount invalid' : 'amount'}
-          inputMode="decimal"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </label>
-      <ErrorText message={error ?? (amount === null ? 'Enter an amount of zero or more' : null)} />
-      <button className="btn-primary" type="submit" disabled={busy || amount === null}>
-        Save budget
-      </button>
-    </form>
   );
 }
 
@@ -236,6 +253,8 @@ function Details(props: { project: ProjectDetail }) {
   const p = props.project;
   return (
     <dl className="facts wide">
+      <dt>Number</dt>
+      <dd>{p.systemNo}</dd>
       <dt>Code</dt>
       <dd>{p.code}</dd>
       <dt>Owner</dt>

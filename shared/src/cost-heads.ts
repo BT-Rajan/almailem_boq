@@ -57,6 +57,8 @@ export const costHeadIdParamsSchema = z.object({ costHeadId: z.string().uuid() }
 
 export type CostHead = {
   id: string;
+  /** System number, C001...: assigned by the server, never sent by a client. */
+  systemNo: string;
   code: string;
   name: string;
   description: string | null;

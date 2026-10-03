@@ -1,19 +1,44 @@
 import { useCallback, useState } from 'react';
 import { formatFils, type EXPENSE_SORTS, type Expense, type ListParams } from '@boq/shared';
 import { cancelApproval } from '../../api/approvals';
-import { attachmentUrl, getCostHeadDetail, reverseExpense } from '../../api/expenses';
+import {
+  attachmentUrl,
+  deleteExpense,
+  getCostHeadDetail,
+  reverseExpense,
+} from '../../api/expenses';
 import { attempt } from '../../api/use-load';
 import { expenseStatusLabel, formatDate } from '../../components/format';
 import { Figures } from '../../components/Figures';
 import { Pager, SortHeader, useList } from '../../components/list';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
+import { ExpenseDetailView } from './ExpenseDetail';
 import { ExpenseForm, ReverseForm } from './ExpenseForm';
 
 type Panel =
-  { kind: 'add' } | { kind: 'edit'; expense: Expense } | { kind: 'reverse'; expense: Expense };
+  | { kind: 'add' }
+  | { kind: 'edit'; expense: Expense }
+  | { kind: 'reverse'; expense: Expense }
+  | { kind: 'detail'; expenseId: string };
+const TITLES: Record<Panel['kind'], string> = {
+  add: 'Add expense',
+  edit: 'Edit expense',
+  reverse: 'Reverse expense',
+  detail: 'Expense',
+};
+/** Clicks on a row's own links and buttons do not also open the row. */
+const own = (ev: { stopPropagation: () => void }) => ev.stopPropagation();
 
-/** One cost head of a project: its figures (from the server) and every expense on it. */
-export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
+/**
+ * One cost head of a project: its figures (from the server) and every expense on it. Tapping an
+ * expense opens its detail and history.
+ * `canDelete` only shows the administrator's Delete action; the server enforces it.
+ */
+export function CostHeadPage(props: {
+  projectId: string;
+  costHeadId: string;
+  canDelete?: boolean;
+}) {
   const { projectId, costHeadId } = props;
   const detail = useList(
     useCallback(
@@ -36,6 +61,13 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
     if (!err) detail.reload();
   };
 
+  const remove = async (e: Expense) => {
+    if (!window.confirm(`Delete expense ${e.invoiceNo} (${formatFils(e.amountFils)} KWD)?`)) return;
+    const err = await attempt(() => deleteExpense(projectId, e.id));
+    setActionError(err);
+    if (!err) detail.reload();
+  };
+
   const d = detail.data;
   if (!d) return <ErrorText message={detail.error} />;
   const m = d.metrics;
@@ -48,11 +80,11 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         </a>
         <span className="muted">/</span>
         <h1>
-          {d.costHead.code} · {d.costHead.name}
+          {d.costHead.systemNo} · {d.costHead.code} · {d.costHead.name}
         </h1>
         {!d.costHead.active && <span className="tag">Inactive</span>}
         <span className="spacer" />
-        {d.editable && d.costHead.active && (
+        {d.editable && d.costHead.active && d.inBudget && (
           <button
             type="button"
             className="btn-primary primary-action"
@@ -64,6 +96,11 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
       </div>
 
       <Figures metrics={m} status={d.status} />
+      {!d.inBudget && (
+        <p className="notice">
+          This cost head is not in the project's approved budget, so it takes no new expenses.
+        </p>
+      )}
       <ErrorText message={actionError} />
 
       <div className="table-scroll">
@@ -75,6 +112,7 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
               <SortHeader label="Invoice" sortKey="invoice" list={detail} />
               <SortHeader label="Amount" sortKey="amount" list={detail} className="num" />
               <th>Description</th>
+              <th>Status</th>
               <th>Bill</th>
               <th>By</th>
               <th className="num">Action</th>
@@ -87,42 +125,46 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
               const posted = e.status === 'POSTED';
               const decision = e.approval?.decisionComment;
               return (
-                <tr key={e.id} className={reversed || !posted ? 'inactive' : undefined}>
+                <tr
+                  key={e.id}
+                  className={reversed || !posted ? 'clickable inactive' : 'clickable'}
+                  onClick={() => setPanel({ kind: 'detail', expenseId: e.id })}
+                >
                   <td>{formatDate(e.expenseDate)}</td>
                   <td>{e.vendor}</td>
-                  <td>
-                    {e.invoiceNo}
-                    {isReversal && <span className="tag"> Reversal</span>}
-                    {reversed && <span className="tag"> Reversed</span>}
-                    {!posted && (
-                      <span
-                        className="tag"
-                        title={
-                          decision
-                            ? `${e.approval?.decidedBy?.name ?? ''}: ${decision}`
-                            : e.approval?.reason
-                        }
-                      >
-                        {' '}
-                        {expenseStatusLabel(e.status)}
-                      </span>
-                    )}
-                  </td>
+                  <td>{e.invoiceNo}</td>
                   <td className={e.amountFils < 0 ? 'num negative' : 'num'}>
                     {formatFils(e.amountFils)}
                   </td>
                   <td className="muted name" title={e.description ?? undefined}>
                     {e.description ?? ''}
                   </td>
-                  <td>
+                  <td
+                    title={
+                      decision
+                        ? `${e.approval?.decidedBy?.name ?? ''}: ${decision}`
+                        : (e.approval?.reason ?? undefined)
+                    }
+                  >
+                    {isReversal ? 'Reversal' : reversed ? 'Reversed' : expenseStatusLabel(e.status)}
+                  </td>
+                  <td onClick={own}>
                     {e.attachment && (
                       <a href={attachmentUrl(projectId, e.id)} title={e.attachment.name}>
                         View
                       </a>
                     )}
                   </td>
-                  <td>{e.createdBy.name}</td>
-                  <td className="num">
+                  <td
+                    title={
+                      e.modifiedBy
+                        ? `Modified by ${e.modifiedBy.name}, ${formatDate(e.modifiedAt.slice(0, 10))}`
+                        : undefined
+                    }
+                  >
+                    {e.createdBy.name}
+                  </td>
+                  <td className="num" onClick={own}>
                     {e.status === 'PENDING_APPROVAL' && (
                       <button type="button" onClick={() => void cancel(e)}>
                         Cancel request
@@ -144,13 +186,21 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
                         </button>
                       </>
                     )}
+                    {props.canDelete && d.editable && posted && !isReversal && !reversed && (
+                      <>
+                        {' '}
+                        <button type="button" className="btn-danger" onClick={() => void remove(e)}>
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               );
             })}
             {d.expenses.items.length === 0 && (
               <tr>
-                <td colSpan={8} className="muted">
+                <td colSpan={9} className="muted">
                   No expenses on this head yet
                 </td>
               </tr>
@@ -159,20 +209,30 @@ export function CostHeadPage(props: { projectId: string; costHeadId: string }) {
         </table>
       </div>
       <Pager data={d.expenses} page={detail.page} setPage={detail.setPage} noun="entries" />
+      {d.deleted.length > 0 && (
+        <details className="deleted-expenses">
+          <summary>Deleted expenses ({d.deleted.length}): not counted, kept on record</summary>
+          <ul>
+            {d.deleted.map((x) => (
+              <li key={x.id}>
+                <button type="button" onClick={() => setPanel({ kind: 'detail', expenseId: x.id })}>
+                  {formatDate(x.expenseDate)} · {x.invoiceNo} · {formatFils(x.amountFils)}
+                </button>{' '}
+                <span className="muted">
+                  deleted by {x.deletedBy?.name ?? 'the system'},{' '}
+                  {formatDate(x.deletedAt.slice(0, 10))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {panel && (
-        <SlideOver
-          title={
-            panel.kind === 'add'
-              ? 'Add expense'
-              : panel.kind === 'edit'
-                ? 'Edit expense'
-                : 'Reverse expense'
-          }
-          onClose={close}
-          sheet
-        >
-          {panel.kind === 'reverse' ? (
+        <SlideOver title={TITLES[panel.kind]} onClose={close} sheet>
+          {panel.kind === 'detail' ? (
+            <ExpenseDetailView projectId={projectId} expenseId={panel.expenseId} />
+          ) : panel.kind === 'reverse' ? (
             <ReverseForm
               expense={panel.expense}
               reverse={(reason) => reverseExpense(projectId, panel.expense.id, reason)}

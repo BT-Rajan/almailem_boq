@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ApprovalItem, Expense } from '@boq/shared';
+import { fils, type ApprovalItem, type Expense } from '@boq/shared';
 import { hasTestDb } from '../db/testing';
 import {
   approvalsRepository,
   auditLogRepository,
   costHeadsRepository,
+  estimatesRepository,
   type CostHeadRecord,
 } from '../repositories';
 import {
@@ -61,11 +62,13 @@ describe.skipIf(!hasTestDb)('approval workflow (real MariaDB)', () => {
   const newProject = async () => {
     const id = (await call(pm, 'POST', '/api/projects', { code: `AP-${++seq}`, name: 'p' })).json()
       .data.id as string;
-    await call(pm, 'PUT', `/api/projects/${id}/estimates`, {
+    await call(admin, 'PUT', `/api/projects/${id}/estimates`, {
       estimates: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
     });
     await call(pm, 'PUT', `/api/projects/${id}/members/${accountantId}`);
     await call(pm, 'PUT', `/api/projects/${id}/members/${viewerId}`);
+    // h2 is in the approved budget at 0: spend on it is the zero-budget case (D3).
+    await estimatesRepository(fx.db.pool).upsert(id, h2.id, fils(0));
     return id;
   };
   const add = (p: string, amountFils: number, extra: Record<string, unknown> = {}, s = pm) =>
@@ -259,7 +262,7 @@ describe.skipIf(!hasTestDb)('approval workflow (real MariaDB)', () => {
     it('re-evaluates at decision time with the control engine: the budget may have changed', async () => {
       const p = await newProject();
       const { approvalId } = await held(p, 1_050_000); // 105% when asked
-      await call(pm, 'PUT', `/api/projects/${p}/estimates`, {
+      await call(admin, 'PUT', `/api/projects/${p}/estimates`, {
         estimates: [{ costHeadId: h1.id, amountFils: 2_100_000 }],
       });
       const item = (await pendingList()).find((a) => a.id === approvalId) as ApprovalItem;

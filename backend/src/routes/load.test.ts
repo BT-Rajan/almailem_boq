@@ -118,16 +118,22 @@ describe.skipIf(!hasTestDb)('load: p95 on 100 projects x 32 heads x 5,000 expens
   it('writes stay under the p95 target', async () => {
     const p = projectIds[2] as string; // the member belongs to even-numbered projects
     const write =
-      (method: 'POST' | 'PUT', url: string, body: (i: number) => object) => (i: number) =>
-        fx.app.inject({ method, url, headers: asUser(member, true), payload: body(i) });
+      (method: 'POST' | 'PUT', url: string, body: (i: number) => object, as = member) =>
+      (i: number) =>
+        fx.app.inject({ method, url, headers: asUser(as, true), payload: body(i) });
     const ids: string[] = [];
     const slow: string[] = [];
     // Budgets first, large enough that the adds below stay under the approval level and post
     // straight to Actual (each add still runs the approval check), so they can be reversed.
     const est = await measure('PUT /api/projects/:id/estimates (1 head)', 100, (i) =>
-      write('PUT', `/api/projects/${p}/estimates`, () => ({
-        estimates: [{ costHeadId: headIds[i % headIds.length], amountFils: 1_000_000_000 + i }],
-      }))(i),
+      write(
+        'PUT',
+        `/api/projects/${p}/estimates`,
+        () => ({
+          estimates: [{ costHeadId: headIds[i % headIds.length], amountFils: 1_000_000_000 + i }],
+        }),
+        admin, // direct budget writes are for administrators (D31)
+      )(i),
     );
     if (est > WRITE_P95_MS) slow.push(`estimates: ${est}`);
     const add = await measure('POST /api/projects/:id/expenses', 100, async (i) => {

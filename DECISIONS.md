@@ -313,3 +313,61 @@ The owner asked for the app to resemble `BT-Rajan/almailam-roadmap-ui`, in its l
 - **Fonts are self-hosted** (`@fontsource`, Latin subset only), because the CSP allows fonts from our own origin only. Icons come from `lucide-react`, the React build of the roadmap's icon set.
 - **The sidebar shows from 1280 px wide.** Narrower screens, iPads included, get a menu button and a drawer, so the money tables keep the full width the landscape iPad checks require.
 - **Not done yet:** the other pages (projects, BoQ, cost head, approvals, administration) take on the new colours, fonts and cards through the shared styles, but keep their own layouts.
+
+## D31. Budgets are approved by an administrator, and frozen once approved
+A project's cost structure (which cost heads apply, and the estimate for each) is proposed by a member and approved by an administrator. This applies when a project is first set up and to every later change.
+- **One approval system.** A budget request is a second kind of row in `approvals` (`kind = BUDGET`, migration 0015). It uses the same state machine (`domain/approval-status`), `approval_actions` history, audit events, approve and reject routes, `approval.decide` permission and no-self-approval rule as spend approval.
+- **Request lines.** The heads and amounts are stored head by head in `approval_budget_lines` (append-only):
+  - `approved_fils`: the approved estimate when the request was made; empty when the head is being added.
+  - `amount_fils`: the proposed estimate; empty when the head is being removed.
+  So every request records what changed, the previous approved value and the proposed value. With the approval's requester, decider and timestamps, that is the full audit record.
+- **The approved budget stays `project_estimates`**, the only figures the BoQ, dashboard and spend control read. Only an approval writes it, in one transaction:
+  - the proposed amounts are written;
+  - removed heads are deleted;
+  - each change is audited (`estimate.changed` / `estimate.removed`).
+  Approval is refused if the approved budget moved after the request; reject it and resubmit.
+- **Frozen.** Normal users cannot edit the approved budget. `PUT /api/projects/:id/estimates` now needs `approval.decide`, so only administrators can make direct corrections, which are audited. The UI no longer offers a per-head budget edit.
+- **Changes are proposals.** Proposing the whole structure again expresses every supported change: add a head, change an estimate, or remove a head (by leaving it out). One budget request may wait per project, enforced by a unique key, so changes cannot conflict. A request that changes nothing is refused.
+- **Expense protection.** A head with expenses (posted or awaiting approval, reversals included) cannot be removed. The server refuses this when the request is submitted and again when it is approved; the UI keeps such heads ticked and locked. Their estimates can still change.
+- **Existing projects** keep their estimates as their approved budget. Nothing is rewritten and no approval is forced on them.
+- **The flow:** Details, Select costs (two-column checkboxes, showing the C number and name), Enter estimates (tap a row; amounts in KWD are exact, and more than 3 decimals is refused, not rounded), Submit, then approval. The project page shows the approved, waiting or rejected state, with a link to propose a change or to correct and resubmit. Approvals has a Budgets tab showing each head's approved and proposed values, with totals.
+
+## D32. Expense lifecycle: budget heads only, audited edits, admin-only soft deletion
+- **Expenses go on approved budget heads only.** Creating an expense, or moving one to another head, is refused (`HEAD_NOT_IN_BUDGET`) unless the head is active and in `project_estimates`. A head approved at 0 still qualifies, so the zero-budget rule (D3) is unchanged. The expense form lists only such heads (`BoqRow.inBudget`).
+- **Every change records who and when.** `expenses.updated_by` (migration 0016) is set on edit, approval decision, reversal and bill upload, next to the existing `updated_at`. The API returns them as `modifiedBy` and `modifiedAt`. What changed stays in the existing audit trail (`expense.updated` and the rest). There is no second history table.
+- **Only administrators delete** (`admin.expenses.delete`, granted to Admin only). Deletion is soft: `deleted_at` and `deleted_by` are set and the row is kept, together with its audit history and the `expense.deleted` event, which records who, when and the amount. Everyone else still corrects with a reversal.
+  - **Refused:** reversal entries, reversed originals (delete would unbalance the pair), and expenses waiting for approval (cancel those instead).
+  - **The UI** shows Delete only to holders of the permission. The server enforces it either way.
+- **Deleted expenses do not exist for figures.** `countsTowardActual` excludes them, so the BoQ, dashboard, control projection and reports all follow from one place. Lists, cost-head detail and search exclude them too. The invoice uniqueness key ignores them. The threshold algorithm is unchanged.
+- **Removal protection.** A project cost head with any expense that has not been deleted (posted, waiting, rejected, cancelled or reversed) cannot leave the budget, and that applies to administrators as well. The check runs both when a request is submitted and when it is approved (D31). Once a head's only expenses have been deleted, it can be removed. This concerns a project's budget lines, not the global cost-head master (`admin.costheads.manage`), whose rules are unchanged.
+
+## D33. KWD input has 3 decimals; project summary and expense drill-down
+- **Three decimals, never rounded.** Kuwaiti dinars have 3 decimals (fils). Every KWD amount typed in the UI, for both expenses and estimates, goes through one parser (`parseKwdInput`). It refuses a 4th decimal instead of rounding it. The API only accepts integer fils.
+- **Project summary** is the project page's Summary tab, built on the existing BoQ response with no second calculation:
+  - Rows: one per approved cost head (`inProjectSummary`), plus any head that still carries spend from before budgets were approved, so the rows always add up to the server's total.
+  - Columns: Cost Code (C number), Cost Head, Approved Estimate, Actual, Remaining, Utilisation %, Status, Action.
+  - Totals: shown above the table, from the server's `total`.
+  - Approved figures only: the estimate is always `project_estimates`, so a pending budget change never counts (D31).
+- **Drill-down:**
+  - A summary row opens the cost-head page, which lists that project and head's expenses with a Status column.
+  - Tapping an expense opens its detail in a bottom sheet: `GET /api/projects/:id/expenses/:expenseId`, which needs `expense.view` and project membership, like the list and the bill.
+  - An expense from another project is not found.
+- **History** is read from the existing audit trail: the expense's own events and those of its approval request. It is shown as plain actions (Created, Modified, Bill uploaded, Reversed, approval steps, Deleted), each with who, when, and the field changes or note. Nothing new is recorded.
+- **Deleted expenses** stay out of the active list and the figures. Each cost-head page has a folded "Deleted expenses" list, and each entry opens its record and full history, marked deleted. A deleted expense's bill is no longer served.
+
+## D34. Estimate vs Actual chart on the project summary
+- **Plain HTML and CSS bars**, horizontal and grouped (Estimate, then Actual), placed under the summary table. No chart library was added: two bars per head do not need one.
+- **Same figures as the table.** The chart reads the summary's BoQ rows, with the same filter (`inProjectSummary`), the same order and the same `metrics`. It sums nothing and queries nothing else.
+- **Honest scale.** Every bar is a share of the largest figure shown, so an Actual above its Estimate is drawn longer and never capped. Each bar carries its exact value, formatted with `formatFils`. An Actual above its Estimate is shown in red.
+- **Interaction and layout.** Each head links to the same cost-head page as its table row. With many heads the list scrolls inside the chart. With no approved heads, a one-line empty state replaces the chart. Colours (teal Estimate, brand-blue Actual) pass the palette checks.
+
+## D35. The budget and expense workflows say what state they are in
+- **Budget steps.** The budget steps are: Details, Select costs, Enter estimates, Review (each head's approved value, proposed value and change), then Submit for Admin approval. While a request waits, the editor shows step 5, Admin approval, and lists the pending lines.
+- **Project page banner.** It names the state: pending Admin approval (with "View changes"), rejected, or approved. While a change is pending or after a rejection, it says that the approved budget is still in force.
+- **Expenses need an approved head.** The Add expense button is offered only where an approved budget head exists, and the expense form names heads by their C number. A cost head outside the budget says it takes no new expenses.
+- **Rule refusals read as business messages.** `authorize()` takes an optional message for the refused user:
+  - "Only an Admin can remove an expense."
+  - "Only an Admin can approve or reject."
+  - "This approved estimate cannot be changed directly…"
+  - A second budget request: "This budget is awaiting Admin approval…"
+  - A spent head: "Cost head Cxxx cannot be removed because expenses exist."

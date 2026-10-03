@@ -12,6 +12,7 @@ import { costHeadsRepository, type CostHeadRecord } from '../repositories';
 
 const toCostHead = (h: CostHeadRecord): CostHead => ({
   id: h.id,
+  systemNo: h.systemNo,
   code: h.code,
   name: h.name,
   description: h.description,

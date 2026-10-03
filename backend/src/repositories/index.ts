@@ -1,5 +1,6 @@
 export * from './access';
 export * from './approvals';
+export * from './budget-approvals';
 export * from './audit-log';
 export * from './cost-heads';
 export * from './project-members';

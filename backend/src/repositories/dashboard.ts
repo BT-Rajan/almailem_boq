@@ -15,7 +15,7 @@ import { countsTowardActual, str } from './shared';
  * visible projects' rows are read; actual uses the covering index ix_expenses_project_actual.
  */
 const PROJECT_FIGURES = `
-  SELECT p.id, p.code, p.name, p.status,
+  SELECT p.id, p.system_no, p.code, p.name, p.status,
          CAST(COALESCE((
            SELECT SUM(e.amount_fils)
              FROM project_estimates e
@@ -36,6 +36,7 @@ const money = (v: unknown): Fils => fils(Number(v));
 
 export type ProjectTotalsRow = {
   id: string;
+  systemNo: string;
   code: string;
   name: string;
   status: string;
@@ -71,6 +72,7 @@ export function dashboardRepository(db: Db) {
       const rows = await selectRows(db, `${PROJECT_FIGURES}${s.sql} ORDER BY p.code`, s.params);
       return rows.map((r: Row) => ({
         id: str(r, 'id'),
+        systemNo: str(r, 'system_no'),
         code: str(r, 'code'),
         name: str(r, 'name'),
         status: str(r, 'status'),

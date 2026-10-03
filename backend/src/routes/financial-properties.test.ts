@@ -153,9 +153,12 @@ describe.skipIf(!hasTestDb)('financial properties (real MariaDB)', () => {
     const projectId = await newProject();
     // Three heads start with a budget (so most adds post) and one without (D3: spend needs approval).
     const budgets = [20_000_000, 15_000_000, 8_000_000, 0];
-    await api('PUT', `/api/projects/${projectId}/estimates`, {
-      estimates: budgets.map((amountFils, i) => ({ costHeadId: heads[i]?.id, amountFils })),
-    });
+    await api(
+      'PUT',
+      `/api/projects/${projectId}/estimates`,
+      { estimates: budgets.map((amountFils, i) => ({ costHeadId: heads[i]?.id, amountFils })) },
+      admin,
+    );
     const ledger: Live[] = [];
     const live = () => ledger.filter(counts);
     const pending = () => ledger.filter((e) => e.status === 'PENDING_APPROVAL');
@@ -221,9 +224,12 @@ describe.skipIf(!hasTestDb)('financial properties (real MariaDB)', () => {
       } else {
         const h = rand(4);
         budgets[h] = rand(3) === 0 ? 0 : rand(40_000_000);
-        await api('PUT', `/api/projects/${projectId}/estimates`, {
-          estimates: [{ costHeadId: heads[h]?.id, amountFils: budgets[h] }],
-        });
+        await api(
+          'PUT',
+          `/api/projects/${projectId}/estimates`,
+          { estimates: [{ costHeadId: heads[h]?.id, amountFils: budgets[h] }] },
+          admin,
+        );
       }
       if (step % 10 === 9) await checkAll(projectId, budgets, ledger);
     }
@@ -237,9 +243,12 @@ describe.skipIf(!hasTestDb)('financial properties (real MariaDB)', () => {
   it('a concurrent burst of adds, reversals and edits on the same heads ends consistent', async () => {
     const projectId = await newProject();
     const budgets = [10_000_000, 0, 5_000_000, 0];
-    await api('PUT', `/api/projects/${projectId}/estimates`, {
-      estimates: budgets.map((amountFils, i) => ({ costHeadId: heads[i]?.id, amountFils })),
-    });
+    await api(
+      'PUT',
+      `/api/projects/${projectId}/estimates`,
+      { estimates: budgets.map((amountFils, i) => ({ costHeadId: heads[i]?.id, amountFils })) },
+      admin,
+    );
     const ledger: Live[] = [];
     for (let i = 0; i < 20; i++) {
       const amount = 10_000 + i * 777;
@@ -274,9 +283,12 @@ describe.skipIf(!hasTestDb)('financial properties (real MariaDB)', () => {
       );
     }
     burst.push(
-      api('PUT', `/api/projects/${projectId}/estimates`, {
-        estimates: [{ costHeadId: heads[0]?.id, amountFils: 12_000_000 }],
-      }),
+      api(
+        'PUT',
+        `/api/projects/${projectId}/estimates`,
+        { estimates: [{ costHeadId: heads[0]?.id, amountFils: 12_000_000 }] },
+        admin,
+      ),
     );
     budgets[0] = 12_000_000;
     await Promise.all(burst);

@@ -2,10 +2,15 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CSRF_HEADER } from '@boq/shared';
+import { CSRF_HEADER, fils } from '@boq/shared';
 import { JPG, PDF, PNG } from '../attachments/testing';
 import { hasTestDb } from '../db/testing';
-import { auditLogRepository, costHeadsRepository, type CostHeadRecord } from '../repositories';
+import {
+  auditLogRepository,
+  costHeadsRepository,
+  estimatesRepository,
+  type CostHeadRecord,
+} from '../repositories';
 import {
   approveHeld,
   asUser,
@@ -18,7 +23,7 @@ import {
 } from '../auth/testing';
 
 // Placeholder cost heads and vendors for tests only.
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type Metrics = { budget: number; actual: number; remaining: number; utilisationBp: number };
 type Expense = {
   id: string;
@@ -78,11 +83,13 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
       .data as {
       id: string;
     };
-    await call(pm, 'PUT', `/api/projects/${p.id}/estimates`, {
+    await call(admin, 'PUT', `/api/projects/${p.id}/estimates`, {
       estimates: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
     });
     await call(pm, 'PUT', `/api/projects/${p.id}/members/${accountantId}`);
     await call(pm, 'PUT', `/api/projects/${p.id}/members/${viewerId}`);
+    // h2 is in the approved budget at 0: spend on it is the zero-budget case (D3).
+    await estimatesRepository(fx.db.pool).upsert(p.id, h2.id, fils(0));
     return p.id;
   };
   const expenseBody = (over: Record<string, unknown> = {}) => ({
@@ -293,7 +300,7 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
 
     it('moving to another head moves the spend', async () => {
       const p = await newProject();
-      await call(pm, 'PUT', `/api/projects/${p}/estimates`, {
+      await call(admin, 'PUT', `/api/projects/${p}/estimates`, {
         estimates: [{ costHeadId: h2.id, amountFils: 1_000 }],
       });
       const e = await addOk(p, { amountFils: 70 });
@@ -508,6 +515,162 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
           .statusCode,
       ).toBe(403);
       expect((await reverse(p, e.id, 'x', viewer)).statusCode).toBe(403);
+    });
+  });
+
+  describe('lifecycle: budget heads, edits and admin deletion', () => {
+    const del = (p: string, id: string, s: Session = admin) =>
+      call(s, 'DELETE', `/api/projects/${p}/expenses/${id}`);
+
+    it('an expense goes only on a head in the approved budget', async () => {
+      const p = await newProject();
+      const h3 = await costHeadsRepository(fx.db.pool).create({
+        code: `XN-${++seq}`,
+        name: 'Not in budget',
+        displayOrder: 9,
+      });
+      const res = await add(p, { costHeadId: h3.id });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('HEAD_NOT_IN_BUDGET');
+      const e = await addOk(p);
+      const moved = await call(accountant, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, {
+        costHeadId: h3.id,
+      });
+      expect(moved.json().error.code).toBe('HEAD_NOT_IN_BUDGET');
+    });
+
+    it('an edit records who modified it, when, and what changed', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 1_000 });
+      const res = await call(pm, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, {
+        vendor: 'Renamed Co',
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toMatchObject({
+        vendor: 'Renamed Co',
+        modifiedBy: { name: expect.any(String) },
+      });
+      expect(res.json().data.modifiedAt).toEqual(expect.any(String));
+      const audit = await auditLogRepository(fx.db.pool).listForEntity('expense', e.id);
+      expect(audit.at(-1)).toMatchObject({
+        event: 'expense.updated',
+        before: expect.objectContaining({ vendor: 'Acme Trading' }),
+        after: expect.objectContaining({ vendor: 'Renamed Co' }),
+      });
+    });
+
+    it('only an admin deletes; a deleted expense leaves Actual, lists and search, and is audited', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 300_000, invoiceNo: `DEL-${++seq}` });
+      expect((await headMetrics(p)).actual).toBe(300_000);
+      for (const s of [pm, accountant, viewer, outsider]) {
+        const refused = await del(p, e.id, s);
+        expect(refused.statusCode).toBe(403);
+        expect(refused.json().error.message).toBe('Only an Admin can remove an expense.');
+      }
+      expect((await headMetrics(p)).actual).toBe(300_000);
+
+      expect((await del(p, e.id)).statusCode).toBe(200);
+      expect(await headMetrics(p)).toEqual({
+        budget: 1_000_000,
+        actual: 0,
+        remaining: 1_000_000,
+        utilisationBp: 0,
+      });
+      expect((await call(pm, 'GET', `/api/projects/${p}/expenses`)).json().data.total).toBe(0);
+      const found = (await call(admin, 'GET', `/api/search?q=DEL-${seq}`)).json().data;
+      expect(found.invoices).toHaveLength(0);
+      expect((await del(p, e.id)).statusCode).toBe(404);
+      const audit = await auditLogRepository(fx.db.pool).listForEntity('expense', e.id);
+      expect(audit.map((r) => r.event)).toContain('expense.created');
+      expect(audit.at(-1)).toMatchObject({
+        event: 'expense.deleted',
+        before: expect.objectContaining({ amountFils: 300_000 }),
+        after: { deleted: true },
+      });
+    });
+
+    it('reversals and expenses waiting for approval are not deleted', async () => {
+      const p = await newProject();
+      const e = await addOk(p);
+      const rev = (await reverse(p, e.id)).json().data as Expense;
+      expect((await del(p, rev.id)).statusCode).toBe(409);
+      expect((await del(p, e.id)).statusCode).toBe(409);
+      const held = (
+        await add(p, { amountFils: 1_500_000, approvalReason: TEST_APPROVAL_REASON })
+      ).json().data as Expense & { status: string };
+      expect(held.status).toBe('PENDING_APPROVAL');
+      expect((await del(p, held.id)).statusCode).toBe(409);
+    });
+
+    it('a head with expenses stays in the budget, even for an admin, until they are deleted', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { costHeadId: h2.id, amountFils: 5 });
+      const removeH2 = () =>
+        call(admin, 'POST', `/api/projects/${p}/cost-structure/proposals`, {
+          lines: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
+        });
+      const refused = await removeH2();
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json().error.code).toBe('HEAD_HAS_EXPENSES');
+      expect((await del(p, e.id)).statusCode).toBe(200);
+      expect((await removeH2()).statusCode).toBe(201);
+    });
+  });
+
+  describe('expense detail and history', () => {
+    it('shows the record, where it belongs, and its history in plain actions', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 1_000 });
+      await call(pm, 'PATCH', `/api/projects/${p}/expenses/${e.id}`, { amountFils: 1_500 });
+      await upload(p, e.id, PDF, 'application/pdf');
+      const res = await call(viewer, 'GET', `/api/projects/${p}/expenses/${e.id}`);
+      expect(res.statusCode).toBe(200);
+      const d = res.json().data;
+      expect(d.expense).toMatchObject({
+        id: e.id,
+        amountFils: 1_500,
+        attachment: { name: 'bill 7.pdf' },
+      });
+      expect(d.project.id).toBe(p);
+      expect(d.costHead).toMatchObject({ id: h1.id, code: 'X1' });
+      expect(d.deleted).toBeNull();
+      expect(d.history.map((h: { action: string }) => h.action)).toEqual([
+        'CREATED',
+        'MODIFIED',
+        'BILL_UPLOADED',
+      ]);
+      expect(d.history[1]).toMatchObject({
+        by: { name: expect.any(String) },
+        changes: [{ field: 'amountFils', from: 1_000, to: 1_500 }],
+      });
+    });
+
+    it('only for members, and only within its own project', async () => {
+      const p = await newProject();
+      const other = await newProject();
+      const e = await addOk(p);
+      expect((await call(outsider, 'GET', `/api/projects/${p}/expenses/${e.id}`)).statusCode).toBe(
+        403,
+      );
+      expect((await call(pm, 'GET', `/api/projects/${other}/expenses/${e.id}`)).statusCode).toBe(
+        404,
+      );
+    });
+
+    it('a deleted expense is no longer active, but its record and history stay', async () => {
+      const p = await newProject();
+      const e = await addOk(p, { amountFils: 2_000 });
+      await call(admin, 'DELETE', `/api/projects/${p}/expenses/${e.id}`);
+      const head = (await call(viewer, 'GET', `/api/projects/${p}/cost-heads/${h1.id}`)).json()
+        .data;
+      expect(head.expenses.items).toHaveLength(0);
+      expect(head.deleted).toEqual([
+        expect.objectContaining({ id: e.id, amountFils: 2_000, deletedBy: expect.any(Object) }),
+      ]);
+      const d = (await call(viewer, 'GET', `/api/projects/${p}/expenses/${e.id}`)).json().data;
+      expect(d.deleted).toMatchObject({ by: { name: expect.any(String) } });
+      expect(d.history.at(-1)).toMatchObject({ action: 'DELETED' });
     });
   });
 });

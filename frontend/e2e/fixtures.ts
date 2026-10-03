@@ -16,10 +16,12 @@ const heads = Array.from({ length: 12 }, (_, i) => {
   return {
     costHead: {
       id: i === 0 ? H : `33333333-3333-4333-8333-3333333333${String(i).padStart(2, '0')}`,
+      systemNo: `C${String(i + 1).padStart(3, '0')}`,
       code: `0${i} 30 00`,
       name: `Placeholder cost head with a fairly long descriptive name ${i}`,
       active: true,
     },
+    inBudget: true,
     metrics: m(125_000_500, Math.floor((125_000_500 * bp) / 10000), bp),
     status: status(bp),
   };
@@ -32,6 +34,7 @@ const boq = {
 };
 const project = {
   id: P,
+  systemNo: 'P00001',
   code: 'ALM-2026-001',
   name: 'Placeholder tower with a long project name',
   status: 'active',
@@ -55,6 +58,8 @@ const expense = (i: number) => ({
   attachment: i % 2 ? { name: 'bill.pdf', type: 'application/pdf', size: 1000 } : null,
   createdBy: { id: 'u1', name: 'Site Admin' },
   createdAt: '2026-03-15T08:00:00.000Z',
+  modifiedBy: null,
+  modifiedAt: '2026-03-15T08:00:00.000Z',
   reversalOf: null,
   reversedAt: null,
   // One entry waits for approval, so its Cancel request button is part of the layout checks.
@@ -108,7 +113,8 @@ const ROUTES: [RegExp, unknown][] = [
     /\/api\/auth\/me$/,
     {
       user: { id: 'u1', email: 'admin@example.com', name: 'Site Admin' },
-      permissions: [],
+      // An administrator: the expense Delete action is part of the layout checks.
+      permissions: ['admin.expenses.delete'],
       csrfToken: 'c',
     },
   ],
@@ -128,6 +134,18 @@ const ROUTES: [RegExp, unknown][] = [
   ],
   [/\/api\/projects\/[^/]+\/boq/, boq],
   [
+    /\/api\/projects\/[^/]+\/cost-structure$/,
+    {
+      approved: heads
+        .slice(0, 4)
+        .map((h) => ({ costHead: h.costHead, amountFils: h.metrics.budget })),
+      approvedTotalFils: 500_002_000,
+      lockedHeadIds: [heads[0]?.costHead.id],
+      latest: null,
+      editable: true,
+    },
+  ],
+  [
     /\/api\/projects\/[^/]+\/cost-heads\/[^/]+\/projection/,
     {
       current: { metrics: heads[1]?.metrics, status: 'WARNING' },
@@ -141,7 +159,54 @@ const ROUTES: [RegExp, unknown][] = [
       metrics: heads[0]?.metrics,
       status: heads[0]?.status,
       expenses: page(Array.from({ length: 6 }, (_, i) => expense(i))),
+      inBudget: true,
+      deleted: [
+        {
+          id: '44444444-4444-4444-8444-444444444499',
+          invoiceNo: 'INV-2026-099',
+          expenseDate: '2026-03-01',
+          amountFils: 1_000_000,
+          deletedBy: { id: 'u1', name: 'Site Admin' },
+          deletedAt: '2026-03-02T08:00:00.000Z',
+        },
+      ],
       editable: true,
+    },
+  ],
+  [
+    /\/api\/projects\/[^/]+\/expenses\/[0-9a-f-]{36}$/,
+    {
+      expense: {
+        ...expense(1),
+        status: 'POSTED',
+        approval: null,
+        modifiedBy: { id: 'u1', name: 'Site Admin' },
+      },
+      project,
+      costHead: heads[0]?.costHead,
+      deleted: null,
+      history: [
+        {
+          action: 'CREATED',
+          by: { id: 'u1', name: 'Site Admin' },
+          at: '2026-03-15T08:00:00.000Z',
+          changes: [{ field: 'amountFils', from: null, to: 12_345_678 }],
+          note: null,
+        },
+        {
+          action: 'MODIFIED',
+          by: { id: 'u1', name: 'Site Admin' },
+          at: '2026-03-16T08:00:00.000Z',
+          changes: [
+            {
+              field: 'vendor',
+              from: 'Placeholder Trading',
+              to: 'Placeholder Trading and Contracting Co. 1',
+            },
+          ],
+          note: null,
+        },
+      ],
     },
   ],
   [

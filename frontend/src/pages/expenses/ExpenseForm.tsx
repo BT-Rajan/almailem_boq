@@ -46,9 +46,10 @@ export function ExpenseForm(props: {
   const set = (key: keyof typeof v) => (ev: { target: { value: string } }) =>
     setV({ ...v, [key]: ev.target.value });
 
-  const amountFils = v.amount.trim() ? parseKwdInput(v.amount) : null;
+  const amountFils = parseKwdInput(v.amount);
+  // Only heads in the approved budget take expenses (server); keep the current one when editing.
   const heads = (boq.data?.rows ?? []).filter(
-    (r) => r.costHead.active || r.costHead.id === v.costHeadId,
+    (r) => (r.costHead.active && r.inBudget) || r.costHead.id === v.costHeadId,
   );
   const projection = useProjection(projectId, e ? '' : v.costHeadId, amountFils);
   const needsApproval = projection?.projected.status === 'APPROVAL_REQUIRED';
@@ -92,11 +93,17 @@ export function ExpenseForm(props: {
           <option value="">Choose…</option>
           {heads.map((r) => (
             <option key={r.costHead.id} value={r.costHead.id}>
-              {r.costHead.code} · {r.costHead.name}
+              {r.costHead.systemNo} · {r.costHead.name}
             </option>
           ))}
         </select>
       </label>
+      {boq.data && heads.length === 0 && (
+        <p className="notice">
+          This project has no approved cost heads yet. Expenses can be entered once an Admin
+          approves its budget.
+        </p>
+      )}
       <label>
         Vendor
         <input value={v.vendor} onChange={set('vendor')} required maxLength={200} />
@@ -121,6 +128,9 @@ export function ExpenseForm(props: {
           required
         />
       </label>
+      {v.amount.trim() && amountFils === null && (
+        <p className="error">Enter a non-negative amount with at most 3 decimals.</p>
+      )}
       {projection && <Preview projected={projection.projected} />}
       {needsApproval && (
         <label>
