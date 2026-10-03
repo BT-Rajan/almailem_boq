@@ -23,7 +23,9 @@ export function registerApprovalRoutes(app: FastifyInstance, deps: { pool: DbPoo
   const service = createApprovalService(deps.pool);
   const budgets = createBudgetApprovalService(deps.pool);
   const { authenticate, authorize, authorizeProjectAccess } = app.guards;
-  const decide = { onRequest: [authenticate, authorize('approval.decide')] };
+  const decide = {
+    onRequest: [authenticate, authorize('approval.decide', 'Only an Admin can approve or reject.')],
+  };
 
   app.get('/api/approvals', decide, async (request) =>
     okResponse(await service.list(listApprovalsQuerySchema.parse(request.query))),

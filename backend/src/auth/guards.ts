@@ -77,11 +77,14 @@ export function createGuards(deps: { pool: DbPool; service: AuthService; config:
     request.auth = ctx;
   };
 
-  /** May this user do this kind of thing? The only permission check in the codebase. */
-  const authorize = (permission: PermissionCode): onRequestAsyncHookHandler =>
+  /**
+   * May this user do this kind of thing? The only permission check in the codebase. `denied` is
+   * the message a refused user reads, where a plain "Not allowed" would not say why.
+   */
+  const authorize = (permission: PermissionCode, denied?: string): onRequestAsyncHookHandler =>
     mark(
       async (request: FastifyRequest) => {
-        if (!requireAuth(request).permissions.has(permission)) throw AppError.forbidden();
+        if (!requireAuth(request).permissions.has(permission)) throw AppError.forbidden(denied);
       },
       AUTHORIZE_MARK,
       permission,

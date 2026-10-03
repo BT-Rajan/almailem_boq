@@ -135,6 +135,8 @@ export type CostHeadDetail = {
   metrics: BudgetMetrics;
   status: BudgetStatus;
   expenses: ExpensePage;
+  /** In the project's approved budget: only then does it take new expenses. */
+  inBudget: boolean;
   /** Deleted expenses of this head, newest first. They never count and are not in `expenses`. */
   deleted: DeletedExpenseRef[];
   /** False once the project is completed or cancelled. */

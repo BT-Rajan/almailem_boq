@@ -83,7 +83,7 @@ async function refuseRemovingSpentHeads(
     const head = await costHeadsRepository(db).findById(headId, { includeDeleted: true });
     throw new AppError(
       'HEAD_HAS_EXPENSES',
-      `Cost head ${head?.systemNo ?? headId} has expenses and cannot be removed from the budget`,
+      `Cost head ${head?.systemNo ?? headId} cannot be removed because expenses exist`,
       409,
     );
   }
@@ -141,6 +141,16 @@ export function createBudgetApprovalService(pool: DbPool) {
     ): Promise<BudgetProposal> {
       return withTransaction(pool, async (tx) => {
         await lockProjectForBudget(tx, projectId);
+        // The unique key also refuses a second waiting request; this says so in plain words.
+        if (
+          (await budgetApprovalsRepository(tx).latestForProject(projectId))?.status === 'PENDING'
+        ) {
+          throw new AppError(
+            'BUDGET_PENDING',
+            'This budget is awaiting Admin approval. Only one change can wait at a time.',
+            409,
+          );
+        }
         const approved = await estimatesRepository(tx).listForProject(projectId);
         for (const line of input.lines) {
           const head = await costHeadsRepository(tx).findById(line.costHeadId);

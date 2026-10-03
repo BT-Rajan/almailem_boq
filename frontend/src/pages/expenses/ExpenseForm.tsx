@@ -93,11 +93,17 @@ export function ExpenseForm(props: {
           <option value="">Choose…</option>
           {heads.map((r) => (
             <option key={r.costHead.id} value={r.costHead.id}>
-              {r.costHead.code} · {r.costHead.name}
+              {r.costHead.systemNo} · {r.costHead.name}
             </option>
           ))}
         </select>
       </label>
+      {boq.data && heads.length === 0 && (
+        <p className="notice">
+          This project has no approved cost heads yet. Expenses can be entered once an Admin
+          approves its budget.
+        </p>
+      )}
       <label>
         Vendor
         <input value={v.vendor} onChange={set('vendor')} required maxLength={200} />

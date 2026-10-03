@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { formatFils, sumFils, type CostStructure, type Fils, type ProjectBoq } from '@boq/shared';
 import { getCostStructure, submitCostStructure } from '../../api/cost-structure';
 import { getBoq } from '../../api/estimates';
@@ -6,9 +6,10 @@ import { attempt, useLoad } from '../../api/use-load';
 import { formatDate } from '../../components/format';
 import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
+import { ProposalLines } from '../../components/ProposalLines';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 
-export type CostPhase = 'select' | 'estimate';
+export type CostPhase = 'select' | 'estimate' | 'review' | 'pending';
 type Head = { id: string; systemNo: string; code: string; name: string };
 
 /**
@@ -72,16 +73,7 @@ function Editor(props: {
   };
 
   if (latest?.status === 'PENDING') {
-    return (
-      <div className="narrow">
-        <p className="notice">
-          A budget request from {latest.requestedBy.name} (
-          {formatDate(latest.requestedAt.slice(0, 10))}) is waiting for an administrator. Only one
-          may wait at a time.
-        </p>
-        <a href={`#/projects/${projectId}`}>Back to the project</a>
-      </div>
-    );
+    return <PendingRequest projectId={projectId} proposal={latest} onPhase={props.onPhase} />;
   }
   if (!structure.editable)
     return <p className="muted">This project's budget can no longer change.</p>;
@@ -93,6 +85,29 @@ function Editor(props: {
     removed.length > 0 ||
     chosen.some((h) => !approved.has(h.id) || approved.get(h.id) !== amounts.get(h.id));
   const proposedTotal = sumFils(chosen.flatMap((h) => amounts.get(h.id) ?? []));
+  // What the request will say, head by head (the server records the same at submission).
+  const preview = {
+    lines: [
+      ...chosen.map((h) => {
+        const was = approved.get(h.id) ?? null;
+        const amount = amounts.get(h.id) ?? null;
+        return {
+          costHead: h,
+          approvedFils: was,
+          amountFils: amount,
+          change: was === null ? 'ADDED' : was === amount ? 'UNCHANGED' : 'CHANGED',
+        } as const;
+      }),
+      ...removed.map((h) => ({
+        costHead: h,
+        approvedFils: approved.get(h.id) ?? null,
+        amountFils: null,
+        change: 'REMOVED' as const,
+      })),
+    ],
+    approvedTotalFils: structure.approvedTotalFils,
+    proposedTotalFils: proposedTotal,
+  };
 
   const toggle = (id: string) => {
     if (locked.has(id)) return;
@@ -113,6 +128,33 @@ function Editor(props: {
     if (err) setError(err);
     else navigate(`#/projects/${projectId}`);
   };
+
+  if (phase === 'review') {
+    return (
+      <div>
+        <p className="muted">
+          Check the budget before it goes to an Admin.{' '}
+          {approved.size > 0 && 'The approved budget stays in force until the change is approved.'}
+        </p>
+        <ProposalLines proposal={preview} />
+        <ErrorText message={error} />
+        <div className="row actions">
+          <button type="button" onClick={() => setPhase('estimate')}>
+            Back: Enter estimates
+          </button>
+          <span className="spacer" />
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy}
+            onClick={() => void submit()}
+          >
+            Submit for Admin approval
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'select') {
     return (
@@ -219,7 +261,6 @@ function Editor(props: {
             .join(', ')}
         </p>
       )}
-      <ErrorText message={error} />
       <div className="row actions">
         <button type="button" onClick={() => setPhase('select')}>
           Back: Select costs
@@ -228,10 +269,10 @@ function Editor(props: {
         <button
           type="button"
           className="btn-primary"
-          disabled={busy || missing.length > 0 || !changed}
-          onClick={() => void submit()}
+          disabled={missing.length > 0 || !changed}
+          onClick={() => setPhase('review')}
         >
-          Submit for approval
+          Next: Review
         </button>
       </div>
       {missing.length > 0 && (
@@ -253,6 +294,32 @@ function Editor(props: {
           />
         </SlideOver>
       )}
+    </div>
+  );
+}
+
+/** A request waiting for an Admin: what it changes, while the approved budget stays in force. */
+function PendingRequest(props: {
+  projectId: string;
+  proposal: NonNullable<CostStructure['latest']>;
+  onPhase?: ((phase: CostPhase) => void) | undefined;
+}) {
+  const { proposal: p, onPhase } = props;
+  useEffect(() => onPhase?.('pending'), [onPhase]);
+  return (
+    <div>
+      <p className="notice pending" role="status">
+        Pending Admin approval: requested by {p.requestedBy.name} on{' '}
+        {formatDate(p.requestedAt.slice(0, 10))}.{' '}
+        {p.approvedTotalFils > 0 || p.lines.some((l) => l.approvedFils !== null)
+          ? 'The approved budget stays in force until then.'
+          : 'The project has no approved budget until then.'}{' '}
+        Only one request can wait at a time.
+      </p>
+      <ProposalLines proposal={p} />
+      <p>
+        <a href={`#/projects/${props.projectId}`}>Back to the project</a>
+      </p>
     </div>
   );
 }

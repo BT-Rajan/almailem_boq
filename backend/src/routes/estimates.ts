@@ -28,7 +28,16 @@ export function registerEstimateRoutes(app: FastifyInstance, deps: { pool: DbPoo
     '/api/projects/:projectId/estimates',
     // Writing the approved budget directly is for administrators (the approvers). Everyone else
     // proposes a cost structure: POST /api/projects/:projectId/cost-structure/proposals.
-    { onRequest: [authenticate, authorize('approval.decide'), authorizeProjectAccess()] },
+    {
+      onRequest: [
+        authenticate,
+        authorize(
+          'approval.decide',
+          'This approved estimate cannot be changed directly. Propose a change for Admin approval.',
+        ),
+        authorizeProjectAccess(),
+      ],
+    },
     async (request) => {
       const { projectId } = projectIdParamsSchema.parse(request.params);
       const body = setEstimatesRequestSchema.parse(request.body);

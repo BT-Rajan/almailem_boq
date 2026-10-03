@@ -360,3 +360,14 @@ A project's cost structure (which cost heads apply, and the estimate for each) i
 - **Same figures as the table.** The chart reads the summary's BoQ rows, with the same filter (`inProjectSummary`), the same order and the same `metrics`. It sums nothing and queries nothing else.
 - **Honest scale.** Every bar is a share of the largest figure shown, so an Actual above its Estimate is drawn longer and never capped. Each bar carries its exact value, formatted with `formatFils`. An Actual above its Estimate is shown in red.
 - **Interaction and layout.** Each head links to the same cost-head page as its table row. With many heads the list scrolls inside the chart. With no approved heads, a one-line empty state replaces the chart. Colours (teal Estimate, brand-blue Actual) pass the palette checks.
+
+## D35. The budget and expense workflows say what state they are in
+- **Budget steps.** The budget steps are: Details, Select costs, Enter estimates, Review (each head's approved value, proposed value and change), then Submit for Admin approval. While a request waits, the editor shows step 5, Admin approval, and lists the pending lines.
+- **Project page banner.** It names the state: pending Admin approval (with "View changes"), rejected, or approved. While a change is pending or after a rejection, it says that the approved budget is still in force.
+- **Expenses need an approved head.** The Add expense button is offered only where an approved budget head exists, and the expense form names heads by their C number. A cost head outside the budget says it takes no new expenses.
+- **Rule refusals read as business messages.** `authorize()` takes an optional message for the refused user:
+  - "Only an Admin can remove an expense."
+  - "Only an Admin can approve or reject."
+  - "This approved estimate cannot be changed directly…"
+  - A second budget request: "This budget is awaiting Admin approval…"
+  - A spent head: "Cost head Cxxx cannot be removed because expenses exist."

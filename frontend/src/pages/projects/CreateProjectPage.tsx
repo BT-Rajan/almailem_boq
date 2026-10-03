@@ -7,14 +7,15 @@ import { ProjectForm, toRequest } from './ProjectForm';
 
 /**
  * Create Project: 1 Details (creates the project), then the cost structure on that project:
- * 2 Select costs, 3 Enter estimates, 4 Submit for an administrator's approval. Until approved the
- * project has no budget. The same cost-structure screen proposes later changes.
+ * 2 Select costs, 3 Enter estimates, 4 Review and submit, 5 Admin approval (pending). Until
+ * approved the project has no budget. The same cost-structure screen proposes later changes.
  */
 export const CREATE_PROJECT_STEPS = [
   { key: 'details', label: 'Details' },
   { key: 'select', label: 'Select costs' },
   { key: 'estimate', label: 'Enter estimates' },
-  { key: 'submit', label: 'Submit' },
+  { key: 'review', label: 'Review' },
+  { key: 'pending', label: 'Admin approval' },
 ] as const;
 /** URL steps: details, then the cost structure (`boq`; `review` is kept for old links). */
 export type CreateStep = 'details' | 'boq' | 'review';

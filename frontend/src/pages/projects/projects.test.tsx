@@ -58,7 +58,7 @@ describe('Create project (step 1: details)', () => {
     });
     render(<CreateProjectPage />);
     expect(screen.getByRole('list', { name: 'Steps' }).textContent).toBe(
-      '1. Details2. Select costs3. Enter estimates4. Submit',
+      '1. Details2. Select costs3. Enter estimates4. Review5. Admin approval',
     );
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'ALM-1' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tower' } });

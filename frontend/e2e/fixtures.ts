@@ -159,6 +159,7 @@ const ROUTES: [RegExp, unknown][] = [
       metrics: heads[0]?.metrics,
       status: heads[0]?.status,
       expenses: page(Array.from({ length: 6 }, (_, i) => expense(i))),
+      inBudget: true,
       deleted: [
         {
           id: '44444444-4444-4444-8444-444444444499',

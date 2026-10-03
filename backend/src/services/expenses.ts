@@ -188,6 +188,7 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         },
         metrics: row.metrics,
         status: row.status,
+        inBudget: boq.rows.some((r) => r.costHead.id === costHeadId && r.inBudget),
         expenses: await page(projectId, { ...query, costHeadId }),
         deleted: (await expensesRepository(pool).listDeleted(projectId, costHeadId)).map(
           toDeletedRef,

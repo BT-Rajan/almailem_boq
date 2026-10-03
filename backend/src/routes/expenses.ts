@@ -31,8 +31,8 @@ export function registerExpenseRoutes(
 ): void {
   const service = createExpenseService(deps.pool, deps.storage);
   const { authenticate, authorize, authorizeProjectAccess } = app.guards;
-  const onProject = (permission: Parameters<typeof authorize>[0]) => ({
-    onRequest: [authenticate, authorize(permission), authorizeProjectAccess()],
+  const onProject = (permission: Parameters<typeof authorize>[0], denied?: string) => ({
+    onRequest: [authenticate, authorize(permission, denied), authorizeProjectAccess()],
   });
 
   app.get('/api/projects/:projectId/expenses', onProject('expense.view'), async (request) => {
@@ -74,7 +74,7 @@ export function registerExpenseRoutes(
   // Administrators only: everyone else corrects with a reversal.
   app.delete(
     '/api/projects/:projectId/expenses/:expenseId',
-    onProject('admin.expenses.delete'),
+    onProject('admin.expenses.delete', 'Only an Admin can remove an expense.'),
     async (request) => {
       const { projectId, expenseId } = expenseParamsSchema.parse(request.params);
       await service.remove(currentActor(request), projectId, expenseId);

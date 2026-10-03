@@ -564,7 +564,9 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
       const e = await addOk(p, { amountFils: 300_000, invoiceNo: `DEL-${++seq}` });
       expect((await headMetrics(p)).actual).toBe(300_000);
       for (const s of [pm, accountant, viewer, outsider]) {
-        expect((await del(p, e.id, s)).statusCode).toBe(403);
+        const refused = await del(p, e.id, s);
+        expect(refused.statusCode).toBe(403);
+        expect(refused.json().error.message).toBe('Only an Admin can remove an expense.');
       }
       expect((await headMetrics(p)).actual).toBe(300_000);
 

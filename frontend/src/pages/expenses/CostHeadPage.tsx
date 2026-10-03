@@ -84,7 +84,7 @@ export function CostHeadPage(props: {
         </h1>
         {!d.costHead.active && <span className="tag">Inactive</span>}
         <span className="spacer" />
-        {d.editable && d.costHead.active && (
+        {d.editable && d.costHead.active && d.inBudget && (
           <button
             type="button"
             className="btn-primary primary-action"
@@ -96,6 +96,11 @@ export function CostHeadPage(props: {
       </div>
 
       <Figures metrics={m} status={d.status} />
+      {!d.inBudget && (
+        <p className="notice">
+          This cost head is not in the project's approved budget, so it takes no new expenses.
+        </p>
+      )}
       <ErrorText message={actionError} />
 
       <div className="table-scroll">

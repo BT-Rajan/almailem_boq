@@ -95,8 +95,8 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
     fireEvent.click(next);
     expect(screen.getByText('3. Enter estimates').className).toBe('active');
 
-    const submit = screen.getByRole('button', { name: 'Submit for approval' }) as HTMLButtonElement;
-    expect(submit.disabled).toBe(true); // every selected head needs an amount
+    const review = screen.getByRole('button', { name: 'Next: Review' }) as HTMLButtonElement;
+    expect(review.disabled).toBe(true); // every selected head needs an amount
     fireEvent.click(screen.getByRole('row', { name: 'Estimate for C001' }));
     const input = screen.getByLabelText('Estimated amount (KWD)');
     fireEvent.change(input, { target: { value: '1.2345' } }); // never rounded: refused
@@ -112,7 +112,11 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
       .map((c) => c.textContent);
     expect(c1).toEqual(['C001', 'Head H1', '1,250.500', 'New']);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Review' }));
+    expect(screen.getByText('4. Review').className).toBe('active');
+    const lines = within(screen.getByRole('table', { name: 'Proposed cost structure' }));
+    expect(lines.getAllByText('Added')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for Admin approval' }));
     await waitFor(() => expect(window.location.hash).toBe(`#/projects/${ID}`));
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       lines: [
@@ -145,7 +149,7 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
     fireEvent.click(screen.getByRole('button', { name: 'Next: Enter estimates' }));
     // Unchanged: nothing to submit.
     expect(
-      (screen.getByRole('button', { name: 'Submit for approval' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Next: Review' }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(screen.getByText('Nothing changed from the approved budget.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Back: Select costs' }));
@@ -156,7 +160,9 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
     );
     fireEvent.click(screen.getByRole('button', { name: 'Next: Enter estimates' }));
     expect(screen.getByText(/To be removed from the budget: C001 Head H1 \(1\.000\)/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Review' }));
+    expect(screen.getByText('Removed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for Admin approval' }));
     await waitFor(() =>
       expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
         lines: [{ costHeadId: 'h2', amountFils: 500 }],
@@ -173,15 +179,16 @@ describe('Cost structure: select costs, enter estimates, submit for approval', (
             status: 'PENDING',
             requestedBy: { id: 'u1', name: 'Ada' },
             requestedAt: '2026-09-01T00:00:00Z',
+            approvedTotalFils: 0,
+            proposedTotalFils: 0,
             lines: [],
           },
         }),
       }),
     });
     render(<CreateProjectPage step="boq" projectId={ID} />);
-    expect((await screen.findByText(/is waiting for an administrator/)).textContent).toContain(
-      'Ada',
-    );
+    expect((await screen.findByText(/Pending Admin approval/)).textContent).toContain('Ada');
+    expect(screen.getByText('5. Admin approval').className).toBe('active');
     expect(screen.queryByRole('group', { name: 'Cost heads' })).toBeNull();
   });
 });
@@ -310,8 +317,11 @@ describe('Project summary tab', () => {
       }),
     });
     render(<ProjectPage id={ID} />);
-    const notice = await screen.findByText(/waiting for approval/);
-    expect(notice.textContent).toContain('proposed 2,000.000 KWD (approved 1,250.500)');
+    const notice = await screen.findByText(/pending Admin approval/);
+    expect(notice.textContent).toContain('proposed 2,000.000 KWD');
+    expect(notice.textContent).toContain(
+      'The approved budget (1,250.500 KWD) below stays in force',
+    );
     // The figures stay the approved budget.
     expect((await screen.findByLabelText('Project figures')).textContent).toContain(
       'Total Approved Estimate1,251.500',

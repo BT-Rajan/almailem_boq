@@ -140,14 +140,12 @@ describe.skipIf(!hasTestDb)('budget (cost structure) approval (real MariaDB)', (
     // Pending: the approved budget and its figures are untouched.
     expect(await budgets(p)).toEqual({ B1: 1_000_000, B2: 500_000, B3: 0 });
     // A second, conflicting change cannot wait at the same time.
-    expect(
-      (
-        await submit(p, [
-          [h1, 1_500_000],
-          [h2, 500_000],
-        ])
-      ).statusCode,
-    ).toBe(409);
+    const second = await submit(p, [
+      [h1, 1_500_000],
+      [h2, 500_000],
+    ]);
+    expect(second.statusCode).toBe(409);
+    expect(second.json().error.message).toMatch(/awaiting Admin approval/);
 
     expect((await decide(change.id, 'approve')).statusCode).toBe(200);
     expect(await budgets(p)).toEqual({ B1: 1_200_000, B2: 0, B3: 300_000 });
@@ -201,7 +199,10 @@ describe.skipIf(!hasTestDb)('budget (cost structure) approval (real MariaDB)', (
     expect((await structure(p)).lockedHeadIds).toEqual([h2.id]);
     const removal = await submit(p, [[h1, 1_000_000]]);
     expect(removal.statusCode).toBe(409);
-    expect(removal.json().error.code).toBe('HEAD_HAS_EXPENSES');
+    expect(removal.json().error).toMatchObject({
+      code: 'HEAD_HAS_EXPENSES',
+      message: expect.stringMatching(/cannot be removed because expenses exist/),
+    });
     expect(
       (
         await submit(p, [
