@@ -36,7 +36,8 @@ export function LoginPage(props: { onSignedIn: (info: SessionInfo) => void }) {
         </div>
         <div>
           <h1>
-            Control in <span className="text-gradient-accent">every budget.</span>
+            Every <span className="text-gradient-gold">estimate</span>, every{' '}
+            <span className="text-gradient-gold">expense</span>, under control.
           </h1>
           <p>
             Estimates, expenses and approvals for every project and cost head in one place, with
@@ -44,9 +45,9 @@ export function LoginPage(props: { onSignedIn: (info: SessionInfo) => void }) {
           </p>
         </div>
         <div className="auth-badges">
-          <span>Budget control</span>
+          <span>Secure access</span>
           <span className="dot" />
-          <span>Approval workflow</span>
+          <span>Admin approval</span>
         </div>
       </section>
 

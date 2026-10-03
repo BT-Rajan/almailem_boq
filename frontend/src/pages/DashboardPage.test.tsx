@@ -50,7 +50,7 @@ describe('Dashboard', () => {
     // Budget > Actual > Remaining > Used (with its status dot), then the counts.
     const tiles = within(await screen.findByRole('group', { name: 'Portfolio figures' }))
       .getAllByText(/./, { selector: '.tile-value' })
-      .map((v) => `${v.textContent} ${v.nextElementSibling?.textContent}`);
+      .map((v) => `${v.textContent} ${v.previousElementSibling?.textContent}`);
     expect(tiles).toEqual([
       '3,000.000 Budget (KWD)',
       '2,150.000 Actual (KWD)',

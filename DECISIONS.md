@@ -371,3 +371,22 @@ A project's cost structure (which cost heads apply, and the estimate for each) i
   - "This approved estimate cannot be changed directly…"
   - A second budget request: "This budget is awaiting Admin approval…"
   - A spent head: "Cost head Cxxx cannot be removed because expenses exist."
+
+## D36. The look follows jdk_erp, in a light theme (replaces D30's colours and fonts)
+- **Palette, "Ivory & Champagne".** It is jdk_erp's "Obsidian & Champagne" turned to day:
+  - a warm ivory page with a faint champagne and violet glow;
+  - white translucent panels with hairline warm borders and ink text (`#12121c`);
+  - the champagne gold accent: `#d4af6a` for fills, focus rings and primary buttons (with ink text), and `#8a6526` for gold text on white.
+  - Status colours (Normal, Warning, Approval) are unchanged.
+- **Type.** jdk_erp's pair: Playfair Display (self-hosted) for display type only, meaning page titles, the wordmark, the sign-in headline and dashboard figures; Inter for every control, table and text. Display type uses lining figures, so codes such as P00001 read exactly.
+- **Pieces carried over:**
+  - wordmark with a gold-gradient word;
+  - gold brand tile;
+  - frosted top bar and sidebar;
+  - uppercase gold group labels;
+  - stat cards (small uppercase label, Playfair figure, icon at the side);
+  - tinted table heads and gold tab underline;
+  - split sign-in with ambient light and a glass card.
+- **Chart colours** (D34) are jdk_erp's violet for Approved Estimate and gold for Actual; they pass the palette checks.
+- **No backdrop-filter on panels.** It would make a panel the containing block of the bottom sheets inside it, so panels and tiles are translucent without blur. Only the top bar, the sidebar and the sign-in card blur.
+- Layout, components and behaviour are unchanged; this is the stylesheet, the fonts and two markup touches (wordmark, stat card order).
