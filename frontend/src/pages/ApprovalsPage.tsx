@@ -156,9 +156,9 @@ function Row(props: { a: ApprovalItem; onDecide: () => void }) {
     <tr>
       <td
         className="name short"
-        title={`${a.project.code} · ${a.project.name} / ${a.costHead.code} · ${a.costHead.name}`}
+        title={`${a.project.systemNo} · ${a.project.name} / ${a.costHead.code} · ${a.costHead.name}`}
       >
-        <a href={`#/projects/${a.project.id}`}>{a.project.code}</a> ·{' '}
+        <a href={`#/projects/${a.project.id}`}>{a.project.systemNo}</a> ·{' '}
         <a href={`#/projects/${a.project.id}/heads/${a.costHead.id}`}>{a.costHead.code}</a>
       </td>
       <td className="name short" title={`${a.expense.vendor} · ${a.expense.invoiceNo}`}>
@@ -217,7 +217,7 @@ function DecisionForm(props: { item: ApprovalItem; onDone: () => void }) {
   return (
     <form className="form" onSubmit={submit}>
       <p>
-        {item.project.code} · {item.costHead.code} · {item.expense.vendor} ·{' '}
+        {item.project.systemNo} · {item.costHead.code} · {item.expense.vendor} ·{' '}
         {item.expense.invoiceNo} · {formatFils(item.expense.amountFils)} KWD
       </p>
       <p className="muted">

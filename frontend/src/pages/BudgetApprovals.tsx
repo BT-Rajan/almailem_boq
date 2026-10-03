@@ -78,10 +78,7 @@ export function BudgetApprovals() {
           <tbody>
             {d?.items.map((b) => (
               <tr key={b.id} className="clickable" onClick={() => setOpen(b)}>
-                <td
-                  className="name"
-                  title={`${b.project.systemNo} · ${b.project.code} · ${b.project.name}`}
-                >
+                <td className="name" title={`${b.project.systemNo} · ${b.project.name}`}>
                   {b.project.systemNo} · {b.project.name}
                 </td>
                 <td className="num">{b.lines.filter((l) => l.change !== 'UNCHANGED').length}</td>

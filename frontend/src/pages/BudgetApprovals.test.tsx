@@ -18,7 +18,7 @@ const head = (id: string, n: number) => ({
 const proposal = {
   id: 'b1',
   status: 'PENDING',
-  project: { id: 'p1', systemNo: 'P00001', code: 'ALM-1', name: 'Tower' },
+  project: { id: 'p1', systemNo: 'P00001', name: 'Tower' },
   lines: [
     { costHead: head('h1', 1), approvedFils: 1_000_000, amountFils: 1_200_000, change: 'CHANGED' },
     { costHead: head('h2', 2), approvedFils: 500_000, amountFils: null, change: 'REMOVED' },

@@ -24,6 +24,7 @@ const ALL = [
   '0014_system_numbers',
   '0015_budget_approvals',
   '0016_expense_deletion',
+  '0017_drop_project_code',
 ];
 const APP_TABLES = [
   'approval_actions',
@@ -92,7 +93,7 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
     expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual([
-      '0016_expense_deletion',
+      '0017_drop_project_code',
     ]);
     const t = await tables(db);
     expect(t).toContain('approval_budget_lines'); // only the newest step (columns only) went

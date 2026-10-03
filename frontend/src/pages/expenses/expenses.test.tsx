@@ -212,7 +212,7 @@ describe('Expense detail', () => {
       modifiedBy: { id: 'u2', name: 'Bob' },
       modifiedAt: '2026-03-16T09:00:00.000Z',
     },
-    project: { id: P, systemNo: 'P00001', code: 'ALM-1', name: 'Villas' },
+    project: { id: P, systemNo: 'P00001', name: 'Villas' },
     costHead: { id: H, systemNo: 'C001', code: 'H1', name: 'Head one' },
     deleted: null,
     history: [

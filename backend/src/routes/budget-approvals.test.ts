@@ -49,8 +49,8 @@ describe.skipIf(!hasTestDb)('budget (cost structure) approval (real MariaDB)', (
     });
   let seq = 0;
   const newProject = async () => {
-    const id = (await call(pm, 'POST', '/api/projects', { code: `BA-${++seq}`, name: 'p' })).json()
-      .data.id as string;
+    const id = (await call(pm, 'POST', '/api/projects', { name: `p ${++seq}` })).json().data
+      .id as string;
     await call(pm, 'PUT', `/api/projects/${id}/members/${viewerId}`);
     return id;
   };

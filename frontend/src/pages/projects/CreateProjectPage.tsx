@@ -55,7 +55,7 @@ function DetailsStep() {
         onSubmit={async (v) => {
           let id = '';
           const err = await attempt(async () => {
-            id = (await createProject({ code: v.code, ...toRequest(v) })).id;
+            id = (await createProject(toRequest(v))).id;
           });
           if (!err) navigate(setupUrl(id));
           return err;

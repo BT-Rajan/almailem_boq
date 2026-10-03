@@ -24,6 +24,8 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
   let roleIds: Record<string, string>;
   let projectA: string;
   let projectB: string;
+  let noA: string;
+  let noB: string;
 
   beforeAll(async () => {
     fx = await createAuthFixture({}, {}, (app) => {
@@ -42,10 +44,14 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
       (await rolesRepository(fx.db.pool).list()).map((r) => [r.name, r.id]),
     );
     const projects = projectsRepository(fx.db.pool);
-    const mk = (code: string) =>
-      projects.create({ code, name: `Project ${code}`, ownerUserId: adminId, status: 'active' });
-    projectA = (await mk('P-A')).id;
-    projectB = (await mk('P-B')).id;
+    const mk = (tag: string) =>
+      projects.create({ name: `Project ${tag}`, ownerUserId: adminId, status: 'active' });
+    const pa = await mk('A');
+    const pb = await mk('B');
+    projectA = pa.id;
+    projectB = pb.id;
+    noA = pa.systemNo;
+    noB = pb.systemNo;
   });
   afterAll(async () => {
     await fx.close();
@@ -128,7 +134,7 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
       expect(assigned.json().data.roles).toEqual([{ id: roleIds['Viewer'], name: 'Viewer' }]);
 
       const granted = await call(admin, 'PUT', `/api/admin/users/${userId}/projects/${projectA}`);
-      expect(granted.json().data).toEqual([{ id: projectA, code: 'P-A', name: 'Project P-A' }]);
+      expect(granted.json().data).toEqual([{ id: projectA, systemNo: noA, name: 'Project A' }]);
 
       const user = await signIn(fx, email, NEW_PASSWORD);
       expect((await reach(user, projectA)).statusCode).toBe(200);
@@ -156,8 +162,8 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
         after: { email, name: 'Flow User', roles: [] },
       });
       expect(rows[1]).toMatchObject({ before: { roles: [] }, after: { roles: ['Viewer'] } });
-      expect(rows[2]?.after).toEqual({ project: { id: projectA, code: 'P-A' } });
-      expect(rows[4]?.before).toEqual({ project: { id: projectA, code: 'P-A' } });
+      expect(rows[2]?.after).toEqual({ project: { id: projectA, systemNo: noA } });
+      expect(rows[4]?.before).toEqual({ project: { id: projectA, systemNo: noA } });
     });
 
     it('a role change applies on the next request of an existing session', async () => {
@@ -296,7 +302,6 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
         (await call(admin, 'PUT', `/api/admin/users/${u.id}/projects/${MISSING}`)).statusCode,
       ).toBe(404);
       const gone = await projectsRepository(fx.db.pool).create({
-        code: 'P-GONE',
         name: 'Gone',
         ownerUserId: adminId,
         status: 'active',
@@ -314,7 +319,7 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
       expect(res.json().data).toMatchObject({
         id: u.id,
         roles: [{ name: 'Viewer' }],
-        projects: [{ id: projectB, code: 'P-B' }],
+        projects: [{ id: projectB, systemNo: noB }],
       });
       expect(res.json().data).not.toHaveProperty('passwordHash');
     });
@@ -337,9 +342,8 @@ describe.skipIf(!hasTestDb)('admin: users, roles and project access (real MariaD
 
     it('lists live projects for the picker', async () => {
       const res = await call(admin, 'GET', '/api/admin/projects');
-      const codes = (res.json().data as { code: string }[]).map((p) => p.code);
-      expect(codes).toEqual(expect.arrayContaining(['P-A', 'P-B']));
-      expect(codes).not.toContain('P-GONE');
+      const ids = (res.json().data as { id: string }[]).map((p) => p.id);
+      expect(ids).toEqual(expect.arrayContaining([projectA, projectB]));
     });
   });
 

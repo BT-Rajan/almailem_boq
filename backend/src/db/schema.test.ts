@@ -44,10 +44,10 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
   let seq = 0;
   const pNo = () => `P${String(++seq).padStart(5, '0')}`;
   const cNo = () => `C${String(++seq).padStart(3, '0')}`;
-  const project = async (code: string, owner: string) => {
+  const project = async (name: string, owner: string) => {
     const rows = await q(
-      "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, ?, 'p', ?, 's') RETURNING id",
-      [pNo(), code, owner],
+      "INSERT INTO projects (system_no, name, owner_user_id, status) VALUES (?, ?, ?, 's') RETURNING id",
+      [pNo(), name, owner],
     );
     return String(rows[0]?.['id']);
   };
@@ -153,10 +153,8 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       await user('dup@x.com');
       await expect(user('DUP@X.COM')).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
     });
-    it('project code is unique', async () => {
-      const owner = await user('owner1@x.com');
-      await project('P-1', owner);
-      await expect(project('P-1', owner)).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
+    it('projects have no code column: the system number is their identity', async () => {
+      expect(await columnsOf('projects')).not.toContain('code');
     });
     it('cost head code is unique', async () => {
       await q("INSERT INTO cost_heads (system_no, code, name) VALUES (?, 'CH-1', 'a')", [cNo()]);
@@ -168,20 +166,20 @@ describe.skipIf(!hasTestDb)('schema constraints (real MariaDB)', () => {
       const owner = await user('owner-sys@x.com');
       const no = pNo();
       await q(
-        "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, 'S-1', 'p', ?, 's')",
+        "INSERT INTO projects (system_no, name, owner_user_id, status) VALUES (?, 'p', ?, 's')",
         [no, owner],
       );
       await expect(
-        q(
-          "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, 'S-2', 'p', ?, 's')",
-          [no, owner],
-        ),
+        q("INSERT INTO projects (system_no, name, owner_user_id, status) VALUES (?, 'p', ?, 's')", [
+          no,
+          owner,
+        ]),
       ).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
       for (const bad of ['P1', 'X00001', 'P0000A'])
         await expect(
           q(
-            "INSERT INTO projects (system_no, code, name, owner_user_id, status) VALUES (?, ?, 'p', ?, 's')",
-            [bad, `S-${bad}`, owner],
+            "INSERT INTO projects (system_no, name, owner_user_id, status) VALUES (?, 'p', ?, 's')",
+            [bad, owner],
           ),
         ).rejects.toThrow();
       await expect(

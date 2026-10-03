@@ -34,10 +34,10 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
       name: 'Searchable head',
       displayOrder: 1,
     });
-    mine = await project(pm, 'MINE-1', 'Zephyr Tower', 'active');
-    theirs = await project(other, 'THEIRS-1', 'Zephyr Annex', 'planned');
-    await project(pm, 'MINE-2', 'Alpha Villas', 'planned');
-    await project(pm, 'MINE-3', 'Mid Mall', 'active');
+    mine = await project(pm, 'Zephyr Tower', 'active');
+    theirs = await project(other, 'Zephyr Annex', 'planned');
+    await project(pm, 'Alpha Villas', 'planned');
+    await project(pm, 'Mid Mall', 'active');
     await expense(pm, mine, 'Zephyr Steel', 'ZS-001', 300_000, 'rebar for podium');
     await expense(pm, mine, 'Acme', 'AC-002', 100_000, null);
     await expense(pm, mine, 'Acme', 'AC-003', 200_000, null);
@@ -54,8 +54,8 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
       ...(s && { headers: asUser(s, method !== 'GET') }),
       ...(payload !== undefined && { payload: payload as object }),
     });
-  async function project(s: Session, code: string, name: string, status: string) {
-    const id = (await call(s, 'POST', '/api/projects', { code, name })).json().data.id as string;
+  async function project(s: Session, name: string, status: string) {
+    const id = (await call(s, 'POST', '/api/projects', { name })).json().data.id as string;
     // A budget, so the search fixtures' expenses are posted rather than held for approval.
     await estimatesRepository(fx.db.pool).upsert(id, head.id, fils(10_000_000));
     if (status === 'active')
@@ -85,14 +85,18 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
 
   describe('lists: sort, filter, page', () => {
     it('projects: sorts by an allowed key and direction, and filters by status', async () => {
-      const codes = async (qs: string) =>
+      const names = async (qs: string) =>
         (
-          (await call(pm, 'GET', `/api/projects?${qs}`)).json().data.items as { code: string }[]
-        ).map((p) => p.code);
-      expect(await codes('sort=name')).toEqual(['MINE-2', 'MINE-3', 'MINE-1']);
-      expect(await codes('sort=name&dir=desc')).toEqual(['MINE-1', 'MINE-3', 'MINE-2']);
-      expect(await codes('status=active')).toEqual(['MINE-1', 'MINE-3']);
-      expect(await codes('q=zephyr')).toEqual(['MINE-1']);
+          (await call(pm, 'GET', `/api/projects?${qs}`)).json().data.items as { name: string }[]
+        ).map((p) => p.name);
+      expect(await names('sort=name')).toEqual(['Alpha Villas', 'Mid Mall', 'Zephyr Tower']);
+      expect(await names('sort=name&dir=desc')).toEqual([
+        'Zephyr Tower',
+        'Mid Mall',
+        'Alpha Villas',
+      ]);
+      expect(await names('status=active')).toEqual(['Zephyr Tower', 'Mid Mall']); // by number
+      expect(await names('q=zephyr')).toEqual(['Zephyr Tower']);
     });
 
     it('expenses: sorts by amount; pages are stable and cover every entry once', async () => {
@@ -114,7 +118,8 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
 
     it.each([
       ['/api/projects?sort=code;DROP TABLE projects'],
-      ['/api/projects?sort=p.code'],
+      ['/api/projects?sort=p.system_no'],
+      ['/api/projects?sort=code'],
       ['/api/projects?sort=owner_user_id'],
       ['/api/projects?sort=__proto__'],
       ['/api/projects?dir=sideways'],
@@ -144,7 +149,7 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
   describe('global search', () => {
     it('groups projects, cost heads, invoices, vendors and expenses', async () => {
       const r = await search(pm, 'zephyr');
-      expect(r.projects.map((p) => p.code)).toEqual(['MINE-1']);
+      expect(r.projects.map((p) => p.name)).toEqual(['Zephyr Tower']);
       expect(r.vendors).toEqual([{ vendor: 'Zephyr Steel', expenses: 1, projects: 1 }]);
       expect((await search(pm, 'ZS-0')).invoices.map((i) => i.invoiceNo)).toEqual(['ZS-001']);
       expect((await search(pm, 'podium')).expenses.map((e) => e.invoiceNo)).toEqual(['ZS-001']);
@@ -156,13 +161,13 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
     it("never shows another team's projects, invoices, vendors or expenses", async () => {
       const r = await search(pm, 'zephyr');
       const text = JSON.stringify(r);
-      expect(text).not.toContain('THEIRS');
+      expect(text).not.toContain('Zephyr Annex');
       expect(text).not.toContain('ZS-SECRET');
       expect(text).not.toContain('secret');
       expect((await search(pm, 'secret')).expenses).toEqual([]);
       // an administrator sees everything (D17)
       const all = await search(admin, 'zephyr');
-      expect(all.projects.map((p) => p.code).sort()).toEqual(['MINE-1', 'THEIRS-1']);
+      expect(all.projects.map((p) => p.name).sort()).toEqual(['Zephyr Annex', 'Zephyr Tower']);
       expect(all.vendors).toEqual([{ vendor: 'Zephyr Steel', expenses: 2, projects: 2 }]);
     });
 
@@ -170,7 +175,7 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
       const id = await expense(pm, mine, 'Rev Co', 'RV-1', 5_000, null);
       await call(pm, 'POST', `/api/projects/${mine}/expenses/${id}/reverse`, { reason: 'x' });
       expect((await search(pm, 'RV-1')).invoices).toHaveLength(1); // the original, not its reversal
-      const gone = await project(pm, 'GONE-1', 'Vanishing', 'planned');
+      const gone = await project(pm, 'Vanishing', 'planned');
       expect((await search(pm, 'vanishing')).projects).toHaveLength(1);
       await call(admin, 'DELETE', `/api/projects/${gone}`);
       expect((await search(pm, 'vanishing')).projects).toEqual([]);
@@ -194,7 +199,7 @@ describe.skipIf(!hasTestDb)('shared list pattern and global search (real MariaDB
     const leads = (table: string, cols: string) =>
       rows.some((r) => r['t'] === table && `${r['cols']},`.startsWith(`${cols},`));
     for (const [table, cols] of [
-      ['projects', 'code'], // project search and sort
+      ['projects', 'system_no'], // project search and sort
       ['projects', 'name'],
       ['projects', 'status'], // status filter
       ['project_members', 'user_id'], // member scope

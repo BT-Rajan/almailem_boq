@@ -42,7 +42,8 @@ export type Page<T> = { items: T[]; total: number; page: number; pageSize: numbe
 export const globalSearchQuerySchema = z.object({ q: z.string().trim().min(2).max(100) }).strict();
 export type SearchHit = {
   projectId: string;
-  projectCode: string;
+  /** The project's system number, P00001.... */
+  projectNo: string;
   costHeadId: string;
   expenseId: string;
   vendor: string;
@@ -52,7 +53,7 @@ export type SearchHit = {
   description: string | null;
 };
 export type SearchResults = {
-  projects: { id: string; code: string; name: string }[];
+  projects: { id: string; systemNo: string; name: string }[];
   costHeads: { id: string; code: string; name: string; active: boolean }[];
   invoices: SearchHit[];
   vendors: { vendor: string; expenses: number; projects: number }[];

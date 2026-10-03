@@ -177,7 +177,7 @@ export type ExpenseHistoryEntry = {
 /** One expense with where it belongs and everything that happened to it, oldest first. */
 export type ExpenseDetail = {
   expense: Expense;
-  project: { id: string; systemNo: string; code: string; name: string };
+  project: { id: string; systemNo: string; name: string };
   costHead: { id: string; systemNo: string; code: string; name: string };
   /** Set when an administrator deleted it: it is kept on record but no longer active. */
   deleted: { by: { id: string; name: string } | null; at: string } | null;

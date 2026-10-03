@@ -11,7 +11,7 @@ afterEach(() => {
 
 const hit = {
   projectId: 'p1',
-  projectCode: 'ALM-1',
+  projectNo: 'P00001',
   costHeadId: 'h1',
   expenseId: 'e1',
   vendor: 'Gulf Steel',
@@ -26,7 +26,7 @@ describe('Global search', () => {
     const calls = mockApi({
       'GET /api/search': () => ({
         data: {
-          projects: [{ id: 'p1', code: 'ALM-1', name: 'Tower' }],
+          projects: [{ id: 'p1', systemNo: 'P00001', name: 'Tower' }],
           costHeads: [{ id: 'h1', code: 'C1', name: 'Steel', active: false }],
           invoices: [hit],
           vendors: [{ vendor: 'Gulf Steel', expenses: 3, projects: 2 }],
@@ -44,12 +44,12 @@ describe('Global search', () => {
     const results = await screen.findByRole('listbox', { name: 'Search results' });
     expect(calls.at(-1)?.url).toBe('/api/search?q=steel');
     expect(results.textContent).toContain('Projects');
-    expect(screen.getByRole('link', { name: 'ALM-1 · Tower' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'P00001 · Tower' }).getAttribute('href')).toBe(
       '#/projects/p1',
     );
     expect(
       screen
-        .getByRole('link', { name: /GS-42 · Gulf Steel · 75,500.000 · ALM-1/ })
+        .getByRole('link', { name: /GS-42 · Gulf Steel · 75,500.000 · P00001/ })
         .getAttribute('href'),
     ).toBe('#/projects/p1/heads/h1');
     expect(results.textContent).toContain('3 expenses in 2 projects');

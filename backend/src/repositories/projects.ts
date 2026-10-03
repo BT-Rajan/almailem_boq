@@ -20,7 +20,6 @@ export type ProjectRecord = Timestamps & {
   id: string;
   /** P00001...: assigned by the system at insert, never changed. */
   systemNo: string;
-  code: string;
   name: string;
   ownerUserId: string;
   startDate: string | null; // 'YYYY-MM-DD'
@@ -30,7 +29,6 @@ export type ProjectRecord = Timestamps & {
   deletedAt: Date | null;
 };
 export type NewProject = {
-  code: string;
   name: string;
   ownerUserId: string;
   status: string;
@@ -38,14 +36,13 @@ export type NewProject = {
   endDate?: string | null;
   description?: string | null;
 };
-export type ProjectPatch = Partial<Omit<NewProject, 'code'>>;
+export type ProjectPatch = Partial<NewProject>;
 
 type ProjectSort = (typeof PROJECT_SORTS)[number];
 
 const map = (r: Row): ProjectRecord => ({
   id: str(r, 'id'),
   systemNo: str(r, 'system_no'),
-  code: str(r, 'code'),
   name: str(r, 'name'),
   ownerUserId: str(r, 'owner_user_id'),
   startDate: strOrNull(r, 'start_date'),
@@ -59,7 +56,7 @@ const map = (r: Row): ProjectRecord => ({
 
 const mapRef = (r: Row): ProjectRef => ({
   id: str(r, 'id'),
-  code: str(r, 'code'),
+  systemNo: str(r, 'system_no'),
   name: str(r, 'name'),
 });
 
@@ -67,15 +64,15 @@ const PROJECT_LIST: ListSpec<ProjectSort, 'status'> = {
   select: 'SELECT p.*, u.name AS owner_name',
   from: 'FROM projects p JOIN users u ON u.id = p.owner_user_id',
   where: ['p.deleted_at IS NULL'],
-  search: ['p.code', 'p.name'],
+  search: ['p.system_no', 'p.name'],
   sorts: {
-    code: 'p.code',
+    number: 'p.system_no',
     name: 'p.name',
     status: 'p.status',
     start: 'p.start_date',
     end: 'p.end_date',
   },
-  defaultSort: { key: 'code', dir: 'asc' },
+  defaultSort: { key: 'number', dir: 'asc' },
   tiebreaker: 'p.id',
   filters: { status: 'p.status' },
 };
@@ -96,11 +93,10 @@ export function projectsRepository(db: Db) {
         const systemNo = await nextSystemNumber(db, 'project');
         const row = await selectOne(
           db,
-          `INSERT INTO projects (system_no, code, name, owner_user_id, status, start_date, end_date, description)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+          `INSERT INTO projects (system_no, name, owner_user_id, status, start_date, end_date, description)
+           VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
           [
             systemNo,
-            input.code,
             input.name,
             input.ownerUserId,
             input.status,
@@ -139,26 +135,20 @@ export function projectsRepository(db: Db) {
       );
       return row !== null;
     },
-    async findByCode(code: string, opts?: FindOptions): Promise<ProjectRecord | null> {
-      const row = await selectOne(db, `SELECT * FROM projects WHERE code = ?${liveClause(opts)}`, [
-        code,
-      ]);
-      return row ? map(row) : null;
-    },
-    /** Live projects, by code. For pickers; the full project list arrives with project management. */
+    /** Live projects, by system number. For pickers. */
     async listRefs(): Promise<ProjectRef[]> {
       const rows = await selectRows(
         db,
-        'SELECT id, code, name FROM projects WHERE deleted_at IS NULL ORDER BY code',
+        'SELECT id, system_no, name FROM projects WHERE deleted_at IS NULL ORDER BY system_no',
       );
       return rows.map(mapRef);
     },
-    /** Live projects the user is a member of, by code. */
+    /** Live projects the user is a member of, by system number. */
     async listRefsForMember(userId: string): Promise<ProjectRef[]> {
       const rows = await selectRows(
         db,
-        `SELECT p.id, p.code, p.name FROM projects p JOIN project_members m ON m.project_id = p.id
-          WHERE m.user_id = ? AND p.deleted_at IS NULL ORDER BY p.code`,
+        `SELECT p.id, p.system_no, p.name FROM projects p JOIN project_members m ON m.project_id = p.id
+          WHERE m.user_id = ? AND p.deleted_at IS NULL ORDER BY p.system_no`,
         [userId],
       );
       return rows.map(mapRef);

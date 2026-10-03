@@ -58,7 +58,7 @@ export function ProjectPage(props: { id: string }) {
         </a>
         <span className="muted">/</span>
         <h1>
-          {p.systemNo} · {p.code} · {p.name}
+          {p.systemNo} · {p.name}
         </h1>
         <span className="tag">{statusLabel(p.status)}</span>
         <span className="spacer" />
@@ -113,7 +113,8 @@ export function ProjectPage(props: { id: string }) {
             type="button"
             className="btn-danger"
             onClick={async () => {
-              if (!window.confirm(`Delete ${p.code}? It disappears for everyone.`)) return;
+              if (!window.confirm(`Delete ${p.systemNo} · ${p.name}? It disappears for everyone.`))
+                return;
               const err = await attempt(() => deleteProject(p.id));
               if (err) setError(err);
               else navigate('#/projects');
@@ -255,8 +256,6 @@ function Details(props: { project: ProjectDetail }) {
     <dl className="facts wide">
       <dt>Number</dt>
       <dd>{p.systemNo}</dd>
-      <dt>Code</dt>
-      <dd>{p.code}</dd>
       <dt>Owner</dt>
       <dd>{p.ownerName}</dd>
       <dt>Start</dt>

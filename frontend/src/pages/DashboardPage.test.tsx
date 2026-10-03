@@ -23,7 +23,6 @@ const dashboard = {
     {
       id: 'p1',
       systemNo: 'P00001',
-      code: 'ALM-1',
       name: 'Tower',
       projectStatus: 'active',
       metrics: { budget: 1_000_000, actual: 1_050_000, remaining: -50_000, utilisationBp: 10_500 },
@@ -32,7 +31,6 @@ const dashboard = {
     {
       id: 'p2',
       systemNo: 'P00002',
-      code: 'ALM-2',
       name: 'Villas',
       projectStatus: 'on_hold',
       metrics: { budget: 2_000_000, actual: 1_100_000, remaining: 900_000, utilisationBp: 5500 },
@@ -72,13 +70,13 @@ describe('Dashboard', () => {
       'Status',
       'Action',
     ]);
-    const tower = screen.getByText(/ALM-1 · Tower/).closest('tr') as HTMLElement;
+    const tower = screen.getByText(/P00001 · Tower/).closest('tr') as HTMLElement;
     expect(
       within(tower)
         .getAllByRole('cell')
         .map((c) => c.textContent),
     ).toEqual([
-      'P00001 · ALM-1 · Tower Active',
+      'P00001 · Tower Active',
       '1,000.000',
       '1,050.000',
       '-50.000',
@@ -95,7 +93,7 @@ describe('Project header and "needs attention first"', () => {
   const ID = '55555555-5555-4555-8555-555555555555';
   const project = {
     id: ID,
-    code: 'ALM-1',
+    systemNo: 'P00001',
     name: 'Tower',
     status: 'active',
     ownerUserId: 'u1',

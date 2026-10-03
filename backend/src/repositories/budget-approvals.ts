@@ -27,7 +27,7 @@ const moneyOrNull = (v: unknown): Fils | null => (v === null ? null : fils(Numbe
 export type BudgetApprovalRecord = {
   id: string;
   status: ApprovalStatus;
-  project: { id: string; systemNo: string; code: string; name: string };
+  project: { id: string; systemNo: string; name: string };
   requestedBy: string;
   requestedByName: string;
   decidedBy: string | null;
@@ -41,7 +41,7 @@ export type BudgetApprovalRecord = {
 type BudgetSort = (typeof BUDGET_APPROVAL_SORTS)[number];
 
 const COLUMNS = `SELECT a.id, a.status, a.requested_by, a.decided_by, a.decided_at, a.decision_comment,
-  a.created_at, p.id AS project_id, p.system_no AS project_system_no, p.code AS project_code,
+  a.created_at, p.id AS project_id, p.system_no AS project_system_no,
   p.name AS project_name, ur.name AS requested_by_name, ud.name AS decided_by_name`;
 const FROM = `FROM approvals a
   JOIN projects p ON p.id = a.project_id AND p.deleted_at IS NULL
@@ -52,7 +52,7 @@ const LIST: ListSpec<BudgetSort, 'status'> = {
   select: COLUMNS,
   from: FROM,
   where: ["a.kind = 'BUDGET'"],
-  search: ['p.system_no', 'p.code', 'p.name'],
+  search: ['p.system_no', 'p.name'],
   sorts: { requested: 'a.created_at', project: 'p.system_no' },
   defaultSort: { key: 'requested', dir: 'asc' }, // oldest waiting first
   tiebreaker: 'a.id',
@@ -65,7 +65,6 @@ const mapHeader = (r: Row): Omit<BudgetApprovalRecord, 'lines'> => ({
   project: {
     id: str(r, 'project_id'),
     systemNo: str(r, 'project_system_no'),
-    code: str(r, 'project_code'),
     name: str(r, 'project_name'),
   },
   requestedBy: str(r, 'requested_by'),

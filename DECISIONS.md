@@ -390,3 +390,11 @@ A project's cost structure (which cost heads apply, and the estimate for each) i
 - **Chart colours** (D34) are jdk_erp's violet for Approved Estimate and gold for Actual; they pass the palette checks.
 - **No backdrop-filter on panels.** It would make a panel the containing block of the bottom sheets inside it, so panels and tiles are translucent without blur. Only the top bar, the sidebar and the sign-in card blur.
 - Layout, components and behaviour are unchanged; this is the stylesheet, the fonts and two markup touches (wordmark, stat card order).
+
+## D37. Projects have no code: the system number is their identity
+- The free-text project code is gone from the database (migration 0017 drops `projects.code` and its unique key), the API (create no longer accepts it; a request that sends one is refused) and every screen.
+- The P number (P00001) is what identifies a project everywhere the code used to:
+  - lists, the dashboard, approvals, search and the user-project picker;
+  - project search and sort (the "No." column; sort key `number`);
+  - audit entries.
+- The migration does not keep old codes; rolling it back restores the column with each project's system number as its code.

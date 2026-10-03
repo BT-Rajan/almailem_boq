@@ -133,7 +133,7 @@ export function UserDetail(props: { id: string; onChanged: () => void }) {
           <tbody>
             {u.projects.map((p) => (
               <tr key={p.id}>
-                <td>{p.code}</td>
+                <td>{p.systemNo}</td>
                 <td>{p.name}</td>
                 <td className="num">
                   <button
@@ -163,7 +163,7 @@ export function UserDetail(props: { id: string; onChanged: () => void }) {
           <option value="">Choose a project…</option>
           {grantable.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.code} · {p.name}
+              {p.systemNo} · {p.name}
             </option>
           ))}
         </select>

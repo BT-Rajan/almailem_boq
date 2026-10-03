@@ -66,9 +66,8 @@ describe.skipIf(!hasTestDb)('dashboard (real MariaDB)', () => {
     budgets: [CostHeadRecord, number][],
     spend: [CostHeadRecord, number][],
   ) => {
-    const id = (
-      await call(s, 'POST', '/api/projects', { code: `D-${++seq}`, name: `Dash ${seq}` })
-    ).json().data.id as string;
+    const id = (await call(s, 'POST', '/api/projects', { name: `Dash ${++seq}` })).json().data
+      .id as string;
     await call(admin, 'PUT', `/api/projects/${id}/estimates`, {
       estimates: budgets.map(([h, amountFils]) => ({ costHeadId: h.id, amountFils })),
     });

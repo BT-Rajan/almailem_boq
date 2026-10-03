@@ -4,7 +4,6 @@ import { UserPicker } from '../../components/UserPicker';
 import { ErrorText } from '../../components/SlideOver';
 
 export type ProjectFormValues = {
-  code: string;
   name: string;
   ownerUserId: string;
   startDate: string;
@@ -23,7 +22,7 @@ export function toRequest(v: ProjectFormValues) {
   };
 }
 
-/** Project details, for create (with code) and edit (code fixed). Validation is the server's. */
+/** Project details, for create and edit. The P number is the server's. Validation is the server's. */
 export function ProjectForm(props: {
   project: ProjectDetail | null;
   submitLabel: string;
@@ -31,7 +30,6 @@ export function ProjectForm(props: {
 }) {
   const p = props.project;
   const [v, setV] = useState<ProjectFormValues>({
-    code: p?.code ?? '',
     name: p?.name ?? '',
     ownerUserId: p?.ownerUserId ?? '',
     startDate: p?.startDate ?? '',
@@ -52,12 +50,6 @@ export function ProjectForm(props: {
 
   return (
     <form className="form" onSubmit={submit}>
-      {!p && (
-        <label>
-          Code
-          <input value={v.code} onChange={set('code')} required maxLength={30} />
-        </label>
-      )}
       <label>
         Name
         <input value={v.name} onChange={set('name')} required maxLength={200} />

@@ -46,7 +46,6 @@ describe.skipIf(!hasTestDb)('authorization matrix (real MariaDB)', () => {
     const owner = await makeUser(fx, { roleName: 'Project Manager' });
     ownerId = owner.id;
     const project = await projectsRepository(fx.db.pool).create({
-      code: 'MATRIX',
       name: 'Matrix',
       ownerUserId: owner.id,
       status: 'active',
@@ -108,7 +107,6 @@ describe.skipIf(!hasTestDb)('authorization matrix (real MariaDB)', () => {
   async function urlFor(route: RouteInfo, actor: Actor): Promise<string> {
     if (route.method === 'DELETE' && route.url === '/api/projects/:projectId') {
       const p = await projectsRepository(fx.db.pool).create({
-        code: `DEL-${Math.random().toString(36).slice(2, 10)}`,
         name: 'Throwaway',
         ownerUserId: ownerId,
         status: 'planned',

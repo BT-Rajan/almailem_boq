@@ -45,19 +45,17 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
   let seq = 0;
   const newProject = async (s: Session = pm, extra: object = {}) => {
     const res = await call(s, 'POST', '/api/projects', {
-      code: `PRJ-${++seq}`,
-      name: `Project ${seq}`,
+      name: `Project ${++seq}`,
       ...extra,
     });
     if (res.statusCode !== 201) throw new Error(`create failed: ${res.body}`);
-    return res.json().data as { id: string; code: string };
+    return res.json().data as { id: string; systemNo: string };
   };
   const audit = (id: string) => auditLogRepository(fx.db.pool).listForEntity('project', id);
 
   describe('create (step 1: details)', () => {
     it('creates a planned project owned by the creator, who becomes a member', async () => {
       const res = await call(pm, 'POST', '/api/projects', {
-        code: 'ALM-100',
         name: 'Tower',
         startDate: '2026-01-01',
         endDate: '2027-06-30',
@@ -66,7 +64,8 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect(res.statusCode).toBe(201);
       const p = res.json().data;
       expect(p).toMatchObject({
-        code: 'ALM-100',
+        systemNo: expect.stringMatching(/^P\d{5}$/),
+        name: 'Tower',
         status: 'planned',
         ownerUserId: pmUser.id,
         ownerName: 'Test User',
@@ -78,7 +77,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect((await call(pm, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(200);
       const [row] = await audit(p.id);
       expect(row).toMatchObject({ event: 'project.created', actorUserId: pmUser.id });
-      expect(row?.after).toMatchObject({ code: 'ALM-100', status: 'planned' });
+      expect(row?.after).toMatchObject({ systemNo: p.systemNo, name: 'Tower', status: 'planned' });
     });
 
     it('a named owner and the creator both become members', async () => {
@@ -93,25 +92,17 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect((await call(viewer, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(200);
     });
 
-    it('rejects a duplicate code (case-insensitive)', async () => {
-      await newProject(pm, { code: 'DUP-P' });
-      const res = await call(pm, 'POST', '/api/projects', { code: 'dup-p', name: 'x' });
-      expect(res.statusCode).toBe(409);
-      expect(res.json().error.message).toBe('Project already exists');
-    });
-
     it.each([
       ['end before start', { startDate: '2026-05-01', endDate: '2026-04-30' }],
       ['end equal to start', { startDate: '2026-05-01', endDate: '2026-05-01' }],
       ['impossible date', { startDate: '2026-02-30' }],
       ['wrong date format', { startDate: '01/05/2026' }],
-      ['bad code', { code: 'a b' }],
+      ['a code (projects have only their system number)', { code: 'ALM-1' }],
       ['empty name', { name: ' ' }],
       ['a money field', { budget: 1000 }],
       ['a status on create', { status: 'active' }],
     ])('rejects %s with 400', async (_label, patch) => {
       const res = await call(pm, 'POST', '/api/projects', {
-        code: `V-${++seq}`,
         name: 'n',
         ...patch,
       });
@@ -123,7 +114,6 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       await usersRepository(fx.db.pool).update(u.id, { disabled: true });
       for (const ownerUserId of [u.id, MISSING]) {
         const res = await call(pm, 'POST', '/api/projects', {
-          code: `O-${++seq}`,
           name: 'n',
           ownerUserId,
         });
@@ -133,9 +123,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
     });
 
     it('Viewers cannot create projects', async () => {
-      expect(
-        (await call(viewer, 'POST', '/api/projects', { code: 'NOPE', name: 'n' })).statusCode,
-      ).toBe(403);
+      expect((await call(viewer, 'POST', '/api/projects', { name: 'n' })).statusCode).toBe(403);
     });
   });
 
@@ -185,12 +173,15 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
   describe('list', () => {
     it('shows only the projects the user belongs to; an Admin sees all; paginated and searchable', async () => {
       const tag = `L${Date.now()}`;
-      const mine = await newProject(pm, { code: `${tag}-A`, name: 'Alpha' });
-      await newProject(pm, { code: `${tag}-B`, name: 'Beta' });
-      const theirs = await newProject(outsider, { code: `${tag}-C`, name: 'Gamma' });
+      const mine = await newProject(pm, { name: `${tag} Alpha` });
+      await newProject(pm, { name: `${tag} Beta` });
+      const theirs = await newProject(outsider, { name: `${tag} Gamma` });
 
       const pmList = (await call(pm, 'GET', `/api/projects?q=${tag}`)).json().data;
-      expect(pmList.items.map((p: { code: string }) => p.code)).toEqual([`${tag}-A`, `${tag}-B`]);
+      expect(pmList.items.map((p: { name: string }) => p.name)).toEqual([
+        `${tag} Alpha`,
+        `${tag} Beta`,
+      ]);
       const adminList = (await call(admin, 'GET', `/api/projects?q=${tag}`)).json().data;
       expect(adminList.total).toBe(3);
 
@@ -203,7 +194,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect(byName.items.map((p: { id: string }) => p.id)).toContain(mine.id);
       const summary = pmList.items[0];
       expect(Object.keys(summary).sort()).toEqual(
-        ['code', 'endDate', 'id', 'name', 'ownerName', 'startDate', 'status', 'systemNo'].sort(),
+        ['endDate', 'id', 'name', 'ownerName', 'startDate', 'status', 'systemNo'].sort(),
       );
     });
 
@@ -219,7 +210,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       const p = await newProject();
       await call(pm, 'PUT', `/api/projects/${p.id}/members/${viewerUser.id}`);
       const has = async () =>
-        (await call(viewer, 'GET', `/api/projects?q=${p.code}`)).json().data.total;
+        (await call(viewer, 'GET', `/api/projects?q=${p.systemNo}`)).json().data.total;
       expect(await has()).toBe(1);
       await call(pm, 'DELETE', `/api/projects/${p.id}/members/${viewerUser.id}`);
       expect(await has()).toBe(0);
@@ -243,7 +234,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       });
     });
 
-    it('checks dates against the stored ones, and the code cannot change', async () => {
+    it('checks dates against the stored ones, and there is no code to send', async () => {
       const p = await newProject(pm, { startDate: '2026-06-01' });
       const bad = await call(pm, 'PATCH', `/api/projects/${p.id}`, { endDate: '2026-05-01' });
       expect(bad.statusCode).toBe(400);
@@ -300,7 +291,7 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect((await call(admin, 'DELETE', `/api/projects/${p.id}`)).statusCode).toBe(200);
       expect((await call(pm, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(403);
       expect((await call(admin, 'GET', `/api/projects/${p.id}`)).statusCode).toBe(403);
-      expect((await call(pm, 'GET', `/api/projects?q=${p.code}`)).json().data.total).toBe(0);
+      expect((await call(pm, 'GET', `/api/projects?q=${p.systemNo}`)).json().data.total).toBe(0);
       expect((await audit(p.id)).at(-1)?.event).toBe('project.deleted');
     });
   });
@@ -370,7 +361,6 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
       expect([b, c]).toEqual([(a as number) + 1, (a as number) + 2]);
 
       const sent = await call(pm, 'POST', '/api/projects', {
-        code: 'PRJ-SYS',
         name: 'x',
         systemNo: 'P99999',
       });
@@ -386,8 +376,8 @@ describe.skipIf(!hasTestDb)('projects and members (real MariaDB)', () => {
 
     it('concurrent creation never shares a number, and a failed create leaves no gap', async () => {
       const before = numberOf(((await newProject()) as unknown as { systemNo: string }).systemNo);
-      const dup = await call(pm, 'POST', '/api/projects', { code: `PRJ-${seq}`, name: 'dup' });
-      expect(dup.statusCode).toBe(409); // duplicate code: rolled back, number given back
+      const failed = await call(pm, 'POST', '/api/projects', { name: 'x', ownerUserId: MISSING });
+      expect(failed.statusCode).toBe(400); // refused: no number is used
       const made = await Promise.all(
         Array.from({ length: 10 }, () => newProject() as unknown as Promise<{ systemNo: string }>),
       );

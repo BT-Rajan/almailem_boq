@@ -300,7 +300,6 @@ describe.skipIf(!hasTestDb)('authentication and authorization (real MariaDB)', (
       owner = await makeUser(fx, { roleName: 'Viewer' });
       projectId = (
         await projectsRepository(fx.db.pool).create({
-          code: 'PA-1',
           name: 'Access',
           ownerUserId: owner.id,
           status: 'active',
@@ -327,7 +326,6 @@ describe.skipIf(!hasTestDb)('authentication and authorization (real MariaDB)', (
     it('refuses members of a soft-deleted project', async () => {
       const u = await makeUser(fx, { roleName: 'Viewer' });
       const p = await projectsRepository(fx.db.pool).create({
-        code: 'PA-DEL',
         name: 'Gone',
         ownerUserId: owner.id,
         status: 'active',
@@ -345,7 +343,6 @@ describe.skipIf(!hasTestDb)('authentication and authorization (real MariaDB)', (
       expect((await get(s, projectId)).statusCode).toBe(200);
       // ...but still gets the uniform 403 for missing, malformed and deleted projects
       const gone = await projectsRepository(fx.db.pool).create({
-        code: 'PA-ADEL',
         name: 'Gone',
         ownerUserId: owner.id,
         status: 'active',

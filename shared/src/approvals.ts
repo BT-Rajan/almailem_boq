@@ -32,7 +32,7 @@ export type ListApprovalsParams = Partial<z.input<typeof listApprovalsQuerySchem
 export type ApprovalItem = {
   id: string;
   status: ApprovalStatus;
-  project: { id: string; code: string; name: string };
+  project: { id: string; systemNo: string; name: string };
   costHead: { id: string; code: string; name: string };
   expense: {
     id: string;
@@ -97,7 +97,7 @@ export type BudgetChange = (typeof BUDGET_CHANGES)[number];
 export type BudgetProposal = {
   id: string;
   status: ApprovalStatus;
-  project: { id: string; systemNo: string; code: string; name: string };
+  project: { id: string; systemNo: string; name: string };
   /** Every head the request touches, as submitted. */
   lines: {
     costHead: CostStructureHead;

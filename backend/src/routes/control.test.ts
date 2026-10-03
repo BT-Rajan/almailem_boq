@@ -65,8 +65,7 @@ describe.skipIf(!hasTestDb)('budget status, projection and approval rules (real 
   let seq = 0;
   /** Budget 1,000.000 KWD on h1, none on h2. */
   const newProject = async () => {
-    const id = (await call(pm, 'POST', '/api/projects', { code: `C-${++seq}`, name: 'p' })).json()
-      .data.id as string;
+    const id = (await call(pm, 'POST', '/api/projects', { name: 'p' })).json().data.id as string;
     await call(admin, 'PUT', `/api/projects/${id}/estimates`, {
       estimates: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
     });

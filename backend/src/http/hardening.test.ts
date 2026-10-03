@@ -57,7 +57,7 @@ describe.skipIf(!hasTestDb)('hardening (real MariaDB)', () => {
         method: 'POST',
         url: '/api/projects',
         headers: asUser(pm, true),
-        payload: { code: 'HARD', name: 'h' },
+        payload: { name: 'h' },
       })
     ).json().data.id;
     // A budget, so the expense is posted rather than held for approval.
