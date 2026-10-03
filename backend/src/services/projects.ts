@@ -55,7 +55,6 @@ export function createProjectService(pool: DbPool) {
     return {
       id: p.id,
       systemNo: p.systemNo,
-      code: p.code,
       name: p.name,
       status,
       ownerUserId: p.ownerUserId,
@@ -80,7 +79,6 @@ export function createProjectService(pool: DbPool) {
         items: rows.map((p) => ({
           id: p.id,
           systemNo: p.systemNo,
-          code: p.code,
           name: p.name,
           status: statusOf(p),
           ownerName: p.ownerName,
@@ -106,7 +104,6 @@ export function createProjectService(pool: DbPool) {
       return withTransaction(pool, async (tx) => {
         await requireActiveUser(tx, ownerUserId, 'Owner');
         const p = await projectsRepository(tx).create({
-          code: input.code,
           name: input.name,
           ownerUserId,
           status: INITIAL_PROJECT_STATUS,
@@ -118,7 +115,7 @@ export function createProjectService(pool: DbPool) {
         await projectMembersRepository(tx).addIfMissing(p.id, ownerUserId);
         await projectMembersRepository(tx).addIfMissing(p.id, actor.userId);
         await recordAudit(tx, 'project.created', actor, projectEntity(p.id), undefined, {
-          code: p.code,
+          systemNo: p.systemNo,
           name: p.name,
           ownerUserId,
           status: p.status,
@@ -181,7 +178,7 @@ export function createProjectService(pool: DbPool) {
         const current = await requireProject(tx, id);
         await projectsRepository(tx).softDelete(id);
         await recordAudit(tx, 'project.deleted', actor, projectEntity(id), {
-          code: current.code,
+          systemNo: current.systemNo,
           name: current.name,
           status: current.status,
         });

@@ -82,7 +82,6 @@ describe.skipIf(!hasTestDb)('repositories (real MariaDB)', () => {
     it('creates with dates as plain strings and defaults to no financial fields', async () => {
       const owner = await makeUser('own@x.com');
       const p = await projectsRepository(db.pool).create({
-        code: 'P-100',
         name: 'Tower',
         ownerUserId: owner.id,
         status: 'active',
@@ -90,29 +89,22 @@ describe.skipIf(!hasTestDb)('repositories (real MariaDB)', () => {
         endDate: '2026-12-31',
       });
       expect(p).toMatchObject({
-        code: 'P-100',
+        systemNo: expect.stringMatching(/^P\d{5}$/),
         startDate: '2026-01-05',
         endDate: '2026-12-31',
         description: null,
       });
       expect(Object.keys(p).filter((k) => /amount|budget|cost|fils/i.test(k))).toEqual([]);
     });
-    it('maps duplicate code and unknown owner to AppErrors', async () => {
-      const owner = await makeUser('own2@x.com');
-      const repo = projectsRepository(db.pool);
-      await repo.create({ code: 'P-200', name: 'a', ownerUserId: owner.id, status: 's' });
+    it('maps an unknown owner to an AppError', async () => {
       await expect(
-        repo.create({ code: 'P-200', name: 'b', ownerUserId: owner.id, status: 's' }),
-      ).rejects.toMatchObject({ code: 'CONFLICT' });
-      await expect(
-        repo.create({ code: 'P-201', name: 'c', ownerUserId: MISSING, status: 's' }),
+        projectsRepository(db.pool).create({ name: 'c', ownerUserId: MISSING, status: 's' }),
       ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     });
-    it('updates, finds by code and soft deletes', async () => {
+    it('updates, finds by id and soft deletes', async () => {
       const owner = await makeUser('own3@x.com');
       const repo = projectsRepository(db.pool);
       const p = await repo.create({
-        code: 'P-300',
         name: 'a',
         ownerUserId: owner.id,
         status: 'planning',
@@ -120,20 +112,19 @@ describe.skipIf(!hasTestDb)('repositories (real MariaDB)', () => {
       expect(
         await repo.update(p.id, { status: 'active', endDate: '2027-01-01', description: 'd' }),
       ).toBe(true);
-      expect(await repo.findByCode('P-300')).toMatchObject({
+      expect(await repo.findById(p.id)).toMatchObject({
         status: 'active',
         endDate: '2027-01-01',
         description: 'd',
       });
       expect(await repo.softDelete(p.id)).toBe(true);
-      expect(await repo.findByCode('P-300')).toBeNull();
-      expect(await repo.findByCode('P-300', { includeDeleted: true })).not.toBeNull();
+      expect(await repo.findById(p.id)).toBeNull();
+      expect(await repo.findById(p.id, { includeDeleted: true })).not.toBeNull();
     });
     it('adds, lists, checks and removes members; duplicates conflict', async () => {
       const owner = await makeUser('own4@x.com');
       const member = await makeUser('mem4@x.com');
       const p = await projectsRepository(db.pool).create({
-        code: 'P-400',
         name: 'a',
         ownerUserId: owner.id,
         status: 's',

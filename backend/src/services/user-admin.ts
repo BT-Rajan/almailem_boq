@@ -202,7 +202,7 @@ export function createUserAdminService(pool: DbPool) {
         if (!project) throw AppError.notFound('Project not found');
         if (!(await projectMembersRepository(tx).addIfMissing(projectId, userId))) return;
         await recordAudit(tx, 'user.project_granted', actor, userEntity(userId), undefined, {
-          project: { id: project.id, code: project.code },
+          project: { id: project.id, systemNo: project.systemNo },
         });
       });
       return projectsRepository(pool).listRefsForMember(userId);
@@ -222,7 +222,7 @@ export function createUserAdminService(pool: DbPool) {
           'user.project_revoked',
           actor,
           userEntity(userId),
-          { project: { id: projectId, code: project?.code ?? null } },
+          { project: { id: projectId, systemNo: project?.systemNo ?? null } },
           undefined,
         );
       });

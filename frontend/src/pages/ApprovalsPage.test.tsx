@@ -12,7 +12,7 @@ afterEach(() => {
 const waiting = {
   id: 'a1',
   status: 'PENDING',
-  project: { id: 'p1', code: 'P-1', name: 'Tower' },
+  project: { id: 'p1', systemNo: 'P00001', name: 'Tower' },
   costHead: { id: 'h1', code: 'H1', name: 'Steel' },
   expense: {
     id: 'e1',
@@ -54,7 +54,7 @@ describe('Approvals', () => {
       .getAllByRole('cell')
       .map((c) => c.textContent);
     expect(cells).toEqual([
-      'P-1 · H1',
+      'P00001 · H1',
       'INV-7',
       '150.000',
       '1,000.000',

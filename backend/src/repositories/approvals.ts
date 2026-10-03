@@ -36,7 +36,7 @@ export type ApprovalRecord = {
   decidedAt: Date | null;
   decisionComment: string | null;
   createdAt: Date;
-  project: { id: string; code: string; name: string };
+  project: { id: string; systemNo: string; name: string };
   costHead: { id: string; code: string; name: string };
   expense: {
     id: string;
@@ -63,7 +63,11 @@ const map = (r: Row): ApprovalRecord => ({
   decidedAt: toDateOrNull(r['decided_at']),
   decisionComment: strOrNull(r, 'decision_comment'),
   createdAt: toDate(r['created_at']),
-  project: { id: str(r, 'project_id'), code: str(r, 'project_code'), name: str(r, 'project_name') },
+  project: {
+    id: str(r, 'project_id'),
+    systemNo: str(r, 'project_system_no'),
+    name: str(r, 'project_name'),
+  },
   costHead: {
     id: str(r, 'cost_head_id'),
     code: str(r, 'cost_head_code'),
@@ -79,7 +83,7 @@ const map = (r: Row): ApprovalRecord => ({
   },
 });
 
-const COLUMNS = `SELECT a.*, p.code AS project_code, p.name AS project_name,
+const COLUMNS = `SELECT a.*, p.system_no AS project_system_no, p.name AS project_name,
   e.cost_head_id, h.code AS cost_head_code, h.name AS cost_head_name,
   e.vendor, e.invoice_no, e.expense_date, e.amount_fils, e.attachment_key,
   ur.name AS requested_by_name, ud.name AS decided_by_name`;
@@ -93,8 +97,8 @@ const FROM = `FROM approvals a
 const LIST: ListSpec<ApprovalSort, 'status'> = {
   select: COLUMNS,
   from: FROM,
-  search: ['p.code', 'p.name', 'e.vendor', 'e.invoice_no', 'a.reason'],
-  sorts: { requested: 'a.created_at', amount: 'e.amount_fils', project: 'p.code' },
+  search: ['p.system_no', 'p.name', 'e.vendor', 'e.invoice_no', 'a.reason'],
+  sorts: { requested: 'a.created_at', amount: 'e.amount_fils', project: 'p.system_no' },
   defaultSort: { key: 'requested', dir: 'asc' }, // oldest waiting first
   tiebreaker: 'a.id',
   filters: { status: 'a.status' },

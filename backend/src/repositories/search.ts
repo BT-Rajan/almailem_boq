@@ -12,7 +12,7 @@ const LIMIT = 8;
 
 const hit = (r: Row): SearchHit => ({
   projectId: str(r, 'project_id'),
-  projectCode: str(r, 'project_code'),
+  projectNo: str(r, 'project_no'),
   costHeadId: str(r, 'cost_head_id'),
   expenseId: str(r, 'id'),
   vendor: str(r, 'vendor'),
@@ -32,14 +32,14 @@ export function searchRepository(db: Db) {
       // Expenses of live projects only; reversal entries are records of a correction, not results.
       const expenseFrom = `FROM expenses x JOIN projects p ON p.id = x.project_id AND p.deleted_at IS NULL
         WHERE x.reversal_of IS NULL AND x.deleted_at IS NULL`;
-      const expenseCols = 'SELECT x.*, p.code AS project_code';
+      const expenseCols = 'SELECT x.*, p.system_no AS project_no';
 
       const [projects, heads, invoices, vendors, expenses] = await Promise.all([
         selectRows(
           db,
-          `SELECT p.id, p.code, p.name FROM projects p
-            WHERE p.deleted_at IS NULL AND (p.code LIKE ? OR p.name LIKE ?)${p.sql}
-            ORDER BY p.code LIMIT ${LIMIT}`,
+          `SELECT p.id, p.system_no, p.name FROM projects p
+            WHERE p.deleted_at IS NULL AND (p.system_no LIKE ? OR p.name LIKE ?)${p.sql}
+            ORDER BY p.system_no LIMIT ${LIMIT}`,
           [like, like, ...p.params],
         ),
         selectRows(
@@ -72,7 +72,7 @@ export function searchRepository(db: Db) {
       return {
         projects: projects.map((r) => ({
           id: str(r, 'id'),
-          code: str(r, 'code'),
+          systemNo: str(r, 'system_no'),
           name: str(r, 'name'),
         })),
         costHeads: heads.map((r) => ({

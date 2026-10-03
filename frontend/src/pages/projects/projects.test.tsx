@@ -16,7 +16,6 @@ const ID = '11111111-1111-4111-8111-111111111111';
 const project = {
   id: ID,
   systemNo: 'P00001',
-  code: 'ALM-1',
   name: 'Tower',
   status: 'active',
   ownerUserId: 'u1',
@@ -60,13 +59,12 @@ describe('Create project (step 1: details)', () => {
     expect(screen.getByRole('list', { name: 'Steps' }).textContent).toBe(
       '1. Details2. Select costs3. Enter estimates4. Review5. Admin approval',
     );
-    fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'ALM-1' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tower' } });
     fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-01-31' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
     await waitFor(() => expect(window.location.hash).toBe(`#/projects/${ID}/setup/boq`));
+    expect(screen.queryByLabelText('Code')).toBeNull(); // the P number is the server's
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
-      code: 'ALM-1',
       name: 'Tower',
       startDate: '2026-01-31',
       endDate: null,
@@ -78,15 +76,14 @@ describe('Create project (step 1: details)', () => {
     mockApi({
       'GET /api/users/lookup': () => ({ data: [] }),
       'POST /api/projects': () => ({
-        status: 409,
-        error: { code: 'CONFLICT', message: 'Project already exists' },
+        status: 400,
+        error: { code: 'VALIDATION_ERROR', message: 'Owner must be an active user' },
       }),
     });
     render(<CreateProjectPage />);
-    fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
-    expect((await screen.findByRole('alert')).textContent).toBe('Project already exists');
+    expect((await screen.findByRole('alert')).textContent).toBe('Owner must be an active user');
   });
 });
 
@@ -98,7 +95,7 @@ describe('Project page', () => {
       [`POST /api/projects/${ID}/status`]: () => ({ data: { ...project, status: 'on_hold' } }),
     });
     render(<ProjectPage id={ID} />);
-    await screen.findByText('P00001 · ALM-1 · Tower');
+    await screen.findByText('P00001 · Tower');
     const labels = screen.getAllByRole('button', { name: /^Mark / }).map((b) => b.textContent);
     expect(labels).toEqual(['Mark on hold', 'Mark completed', 'Mark cancelled']);
     fireEvent.click(screen.getByRole('button', { name: 'Mark on hold' }));
@@ -140,7 +137,6 @@ describe('validation messages', () => {
       }),
     });
     render(<CreateProjectPage />);
-    fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
     expect((await screen.findByRole('alert')).textContent).toBe(

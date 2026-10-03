@@ -217,7 +217,6 @@ export function createExpenseService(pool: DbPool, storage: AttachmentStorage) {
         project: {
           id: project.id,
           systemNo: project.systemNo,
-          code: project.code,
           name: project.name,
         },
         costHead: { id: head.id, systemNo: head.systemNo, code: head.code, name: head.name },

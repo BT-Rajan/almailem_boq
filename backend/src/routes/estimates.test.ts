@@ -62,7 +62,7 @@ describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
     });
   let seq = 0;
   const newProject = async () =>
-    (await call(pm, 'POST', '/api/projects', { code: `E-${++seq}`, name: 'p' })).json().data as {
+    (await call(pm, 'POST', '/api/projects', { name: `p ${++seq}` })).json().data as {
       id: string;
     };
   const getBoq = async (id: string, s: Session = pm) =>

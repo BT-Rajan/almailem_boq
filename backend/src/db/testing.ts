@@ -85,18 +85,17 @@ export async function seedPortfolio(
     4,
   );
   await insertMany(
-    'INSERT INTO projects (system_no, code, name, owner_user_id, status)',
+    'INSERT INTO projects (system_no, name, owner_user_id, status)',
     Array.from({ length: opts.projects }, (_, i) => [
       projectNos[i],
-      `${prefix}P${pad(i)}`,
-      `Seed project ${i}`,
+      `${prefix}P${pad(i)} Seed project`,
       opts.ownerUserId,
       'active',
     ]),
-    5,
+    4,
   );
   const headIds = await ids('cost_heads', 'code', `${prefix}H%`);
-  const projectIds = await ids('projects', 'code', `${prefix}P%`);
+  const projectIds = await ids('projects', 'name', `${prefix}P%`);
   await insertMany(
     'INSERT INTO project_estimates (project_id, cost_head_id, amount_fils)',
     projectIds.flatMap((p, pi) =>

@@ -8,7 +8,6 @@ export type DashboardProject = {
   id: string;
   /** System number, P00001.... */
   systemNo: string;
-  code: string;
   name: string;
   projectStatus: ProjectStatus;
   metrics: BudgetMetrics;

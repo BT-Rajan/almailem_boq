@@ -35,7 +35,6 @@ const boq = {
 const project = {
   id: P,
   systemNo: 'P00001',
-  code: 'ALM-2026-001',
   name: 'Placeholder tower with a long project name',
   status: 'active',
   ownerUserId: 'u1',
@@ -82,7 +81,7 @@ const approval = (i: number) => {
   return {
     id: `55555555-5555-4555-8555-5555555555${String(i).padStart(2, '0')}`,
     status: 'PENDING',
-    project: { id: P, code: project.code, name: project.name },
+    project: { id: P, systemNo: project.systemNo, name: project.name },
     costHead: e.costHead,
     expense: {
       id: e.id,
@@ -124,7 +123,7 @@ const ROUTES: [RegExp, unknown][] = [
       summary: { projects: 6, pendingApprovals: 4, metrics: boq.total, status: 'NORMAL' },
       projects: Array.from({ length: 6 }, (_, i) => ({
         id: P,
-        code: `ALM-2026-00${i}`,
+        systemNo: `P0000${i + 1}`,
         name: `Placeholder project with a long name ${i}`,
         projectStatus: 'active',
         metrics: heads[i % 4]?.metrics,
@@ -219,7 +218,7 @@ const ROUTES: [RegExp, unknown][] = [
     page(
       Array.from({ length: 8 }, (_, i) => ({
         ...project,
-        code: `ALM-2026-00${i}`,
+        systemNo: `P0000${i + 1}`,
         name: `Placeholder project ${i}`,
       })),
     ),

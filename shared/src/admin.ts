@@ -37,7 +37,7 @@ export const userProjectParamsSchema = z.object({
 });
 
 export type RoleRef = { id: string; name: string };
-export type ProjectRef = { id: string; code: string; name: string };
+export type ProjectRef = { id: string; systemNo: string; name: string };
 
 /** A user as the admin screens see it. Never carries the password hash. */
 export type AdminUser = {

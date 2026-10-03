@@ -79,8 +79,7 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
   let seq = 0;
   /** A project with a budget of 1,000.000 KWD on h1, the accountant and viewer as members. */
   const newProject = async () => {
-    const p = (await call(pm, 'POST', '/api/projects', { code: `X-${++seq}`, name: 'p' })).json()
-      .data as {
+    const p = (await call(pm, 'POST', '/api/projects', { name: 'p' })).json().data as {
       id: string;
     };
     await call(admin, 'PUT', `/api/projects/${p.id}/estimates`, {

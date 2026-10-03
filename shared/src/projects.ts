@@ -21,13 +21,6 @@ export const datesInOrder = (start: string | null | undefined, end: string | nul
   !start || !end || end > start;
 const DATE_ORDER_MESSAGE = 'End date must be after the start date';
 
-export const projectCodeSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(30)
-  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9._/-]*[A-Za-z0-9])?$/, 'Use letters, digits and . _ / -');
-
 const fields = {
   name: z.string().trim().min(1).max(200),
   ownerUserId: z.string().uuid(),
@@ -38,7 +31,6 @@ const fields = {
 
 export const createProjectRequestSchema = z
   .object({
-    code: projectCodeSchema,
     name: fields.name,
     // Defaults to the creator when left out.
     ownerUserId: fields.ownerUserId.optional(),
@@ -54,7 +46,7 @@ export const createProjectRequestSchema = z
 export type CreateProjectRequest = z.input<typeof createProjectRequestSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectRequestSchema>;
 
-/** The code is the project's identity and cannot change. Status changes have their own request. */
+/** The system number (P00001) is the project's identity and never changes. Status has its own request. */
 export const updateProjectRequestSchema = z
   .object({
     name: fields.name.optional(),
@@ -75,7 +67,7 @@ export { DATE_ORDER_MESSAGE };
 
 export const changeProjectStatusRequestSchema = z.object({ status: projectStatusSchema }).strict();
 
-export const PROJECT_SORTS = ['code', 'name', 'status', 'start', 'end'] as const;
+export const PROJECT_SORTS = ['number', 'name', 'status', 'start', 'end'] as const;
 export const listProjectsQuerySchema = listQuerySchema(PROJECT_SORTS, {
   status: projectStatusSchema.optional(),
 });
@@ -94,7 +86,6 @@ export type ProjectSummary = {
   id: string;
   /** System number, P00001...: assigned by the server, never sent by a client. */
   systemNo: string;
-  code: string;
   name: string;
   status: ProjectStatus;
   ownerName: string;

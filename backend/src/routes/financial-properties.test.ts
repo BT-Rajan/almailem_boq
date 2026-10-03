@@ -81,8 +81,7 @@ describe.skipIf(!hasTestDb)('financial properties (real MariaDB)', () => {
     return res.json().data;
   };
   let seq = 0;
-  const newProject = async () =>
-    (await api('POST', '/api/projects', { code: `FP-${++seq}`, name: 'p' })).id as string;
+  const newProject = async () => (await api('POST', '/api/projects', { name: 'p' })).id as string;
   const addEntry = async (projectId: string, head: number, amount: number) =>
     (await api('POST', `/api/projects/${projectId}/expenses`, {
       costHeadId: heads[head]?.id,

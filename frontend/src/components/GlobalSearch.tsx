@@ -42,7 +42,7 @@ export function GlobalSearch() {
           <Group title="Projects" items={r.projects}>
             {(p) => (
               <a href={`#/projects/${p.id}`} onClick={close}>
-                {p.code} · {p.name}
+                {p.systemNo} · {p.name}
               </a>
             )}
           </Group>
@@ -57,7 +57,7 @@ export function GlobalSearch() {
           <Group title="Invoices" items={r.invoices}>
             {(h) => (
               <a href={hitLink(h)} onClick={close}>
-                {h.invoiceNo} · {h.vendor} · {formatFils(h.amountFils)} · {h.projectCode}
+                {h.invoiceNo} · {h.vendor} · {formatFils(h.amountFils)} · {h.projectNo}
               </a>
             )}
           </Group>
@@ -74,7 +74,7 @@ export function GlobalSearch() {
           <Group title="Expenses" items={r.expenses}>
             {(h) => (
               <a href={hitLink(h)} onClick={close}>
-                {h.description} · {formatDate(h.expenseDate)} · {h.projectCode}
+                {h.description} · {formatDate(h.expenseDate)} · {h.projectNo}
               </a>
             )}
           </Group>
