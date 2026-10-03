@@ -22,7 +22,7 @@ describe('App shell', () => {
     });
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
-    expect(screen.getAllByText('Almailem BoQ Manager').length).toBeGreaterThan(0);
+    expect(document.querySelector('.brand-name')?.textContent).toBe('Almailem BoQ Manager');
     // No app chrome until signed in.
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
   });

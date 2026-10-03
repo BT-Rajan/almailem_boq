@@ -35,13 +35,14 @@ function Tile(props: {
   const { icon: Icon, tone = 'primary' } = props;
   const body = (
     <>
-      <span className="tile-icon" aria-hidden="true">
-        <Icon size={22} />
-      </span>
-      <div>
-        <div className="tile-value">{props.value}</div>
+      {/* jdk_erp's stat card: the label, then the figure, the icon at the side. */}
+      <div className="tile-text">
         <div className="tile-label">{props.label}</div>
+        <div className="tile-value">{props.value}</div>
       </div>
+      <span className="tile-icon" aria-hidden="true">
+        <Icon size={20} />
+      </span>
     </>
   );
   const className = tone === 'primary' ? 'tile' : `tile tile-${tone}`;
