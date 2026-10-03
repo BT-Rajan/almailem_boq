@@ -1050,6 +1050,72 @@ a.tile:hover {
   }
 }
 
+/* ---------- Cost structure: select heads (two columns), notices ---------- */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.check-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  min-width: 0;
+}
+.check-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+.check-card.locked {
+  cursor: default;
+}
+.check-card input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+}
+.check-card .code {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.check-card .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .check-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.notice {
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-50);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+.notice.pending {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+.notice.rejected {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
 /* ---------- Touch devices (iPad): 44 px targets, bottom sheets, thumb-reach actions ---------- */
 @media (pointer: coarse) {
   :root {
@@ -1081,6 +1147,7 @@ a.tile:hover {
   }
   .side-nav a,
   .card-header a,
+  .notice a,
   .table a,
   .toolbar a,
   .actions a,

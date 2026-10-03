@@ -14,6 +14,7 @@ const PAGES: [string, string][] = [
   ['approvals', '#/approvals'],
   ['project-boq', `#/projects/${P}`],
   ['cost-head', `#/projects/${P}/heads/${H}`],
+  ['cost-structure', `#/projects/${P}/setup/boq`],
   ['users', '#/admin/users'],
   ['roles', '#/admin/roles'],
   ['cost-heads', '#/admin/cost-heads'],
@@ -196,4 +197,27 @@ test('an approval decision opens as a bottom sheet with its main button under th
   expect((b?.y ?? 0) + (b?.height ?? 0) / 2).toBeGreaterThan(vp.height * 0.6);
   expect(await smallTargets(page)).toEqual([]);
   await page.screenshot({ path: test.info().outputPath('approval-sheet.png') });
+});
+
+test('cost structure: two-column selection, then a tappable estimates table, all touch-sized', async ({
+  page,
+}) => {
+  await open(page, `#/projects/${P}/setup/boq`);
+  const grid = page.getByRole('group', { name: 'Cost heads' });
+  const cards = grid.locator('label.check-card');
+  const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+  expect(a?.y).toBe(b?.y); // two columns
+  expect(a?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await page.getByRole('button', { name: 'Next: Enter estimates' }).click();
+  await page
+    .getByRole('row', { name: /Estimate for/ })
+    .first()
+    .click();
+  await expect(page.locator('.slideover.sheet')).toBeVisible();
+  expect(await smallTargets(page)).toEqual([]);
+  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
 });

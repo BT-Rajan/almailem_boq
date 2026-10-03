@@ -22,6 +22,7 @@ type Boq = {
 
 describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
   let fx: Fixture;
+  let admin: Session;
   let pm: Session;
   let viewer: Session;
   let viewerId: string;
@@ -31,6 +32,7 @@ describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
 
   beforeAll(async () => {
     fx = await createAuthFixture();
+    admin = await signIn(fx, (await makeUser(fx, { roleName: 'Admin' })).email);
     pm = await signIn(fx, (await makeUser(fx, { roleName: 'Project Manager' })).email);
     const v = await makeUser(fx, { roleName: 'Viewer' });
     viewerId = v.id;
@@ -65,7 +67,8 @@ describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
     };
   const getBoq = async (id: string, s: Session = pm) =>
     (await call(s, 'GET', `/api/projects/${id}/boq`)).json().data as Boq;
-  const setEst = (id: string, rows: [CostHeadRecord | string, number][], s: Session = pm) =>
+  // Direct budget writes are for administrators (D31); members propose a cost structure.
+  const setEst = (id: string, rows: [CostHeadRecord | string, number][], s: Session = admin) =>
     call(s, 'PUT', `/api/projects/${id}/estimates`, {
       estimates: rows.map(([h, amountFils]) => ({
         costHeadId: typeof h === 'string' ? h : h.id,
@@ -185,7 +188,7 @@ describe.skipIf(!hasTestDb)('project BoQ and estimates (real MariaDB)', () => {
     'rejects amount %s with 400',
     async (amount) => {
       const p = await newProject();
-      const res = await call(pm, 'PUT', `/api/projects/${p.id}/estimates`, {
+      const res = await call(admin, 'PUT', `/api/projects/${p.id}/estimates`, {
         estimates: [{ costHeadId: (heads[0] as CostHeadRecord).id, amountFils: amount }],
       });
       expect(res.statusCode).toBe(400);

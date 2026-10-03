@@ -130,6 +130,18 @@ const ROUTES: [RegExp, unknown][] = [
   ],
   [/\/api\/projects\/[^/]+\/boq/, boq],
   [
+    /\/api\/projects\/[^/]+\/cost-structure$/,
+    {
+      approved: heads
+        .slice(0, 4)
+        .map((h) => ({ costHead: h.costHead, amountFils: h.metrics.budget })),
+      approvedTotalFils: 500_002_000,
+      lockedHeadIds: [heads[0]?.costHead.id],
+      latest: null,
+      editable: true,
+    },
+  ],
+  [
     /\/api\/projects\/[^/]+\/cost-heads\/[^/]+\/projection/,
     {
       current: { metrics: heads[1]?.metrics, status: 'WARNING' },

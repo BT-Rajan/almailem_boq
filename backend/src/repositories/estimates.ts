@@ -32,5 +32,12 @@ export function estimatesRepository(db: Db) {
         ),
       );
     },
+    /** Take a head out of the project's budget (an approved removal). */
+    async remove(projectId: string, costHeadId: string): Promise<void> {
+      await exec(db, 'DELETE FROM project_estimates WHERE project_id = ? AND cost_head_id = ?', [
+        projectId,
+        costHeadId,
+      ]);
+    },
   };
 }

@@ -1,6 +1,7 @@
-import { useCallback, useState, type FormEvent } from 'react';
-import { formatFils, type BoqRow, type ProjectDetail } from '@boq/shared';
-import { getBoq, setEstimates } from '../../api/estimates';
+import { useCallback, useState } from 'react';
+import { formatFils, type ProjectDetail } from '@boq/shared';
+import { getCostStructure } from '../../api/cost-structure';
+import { getBoq } from '../../api/estimates';
 import {
   addMember,
   changeProjectStatus,
@@ -14,7 +15,6 @@ import { attempt, useLoad } from '../../api/use-load';
 import { BoqTable } from '../../components/BoqTable';
 import { Figures } from '../../components/Figures';
 import { formatDate, statusLabel } from '../../components/format';
-import { parseKwdInput } from '../../components/kwd';
 import { navigate } from '../../components/navigate';
 import { ErrorText, SlideOver } from '../../components/SlideOver';
 import { UserPicker } from '../../components/UserPicker';
@@ -126,6 +126,50 @@ export function ProjectPage(props: { id: string }) {
   );
 }
 
+/**
+ * Where the project's budget stands. The figures above are always the approved budget; a
+ * waiting request is shown here, never counted. Changes are proposed, not made (D31).
+ */
+function BudgetStatus(props: { projectId: string }) {
+  const { projectId } = props;
+  const s = useLoad(useCallback(() => getCostStructure(projectId), [projectId])).data;
+  if (!s) return null;
+  const latest = s.latest;
+  const edit = `#/projects/${projectId}/setup/boq`;
+  if (latest?.status === 'PENDING')
+    return (
+      <p className="notice pending" role="status">
+        Budget {s.approved.length ? 'change' : ''} waiting for approval: proposed{' '}
+        {formatFils(latest.proposedTotalFils)} KWD (approved {formatFils(s.approvedTotalFils)}), by{' '}
+        {latest.requestedBy.name} on {formatDate(latest.requestedAt.slice(0, 10))}.
+      </p>
+    );
+  return (
+    <p
+      className={latest?.status === 'REJECTED' ? 'notice rejected row' : 'notice row'}
+      role="status"
+    >
+      <span>
+        {latest?.status === 'REJECTED'
+          ? `Last budget request rejected by ${latest.decidedBy?.name ?? ''}: ${latest.decisionComment ?? ''}`
+          : s.approved.length
+            ? `Budget approved: ${s.approved.length} cost heads, ${formatFils(s.approvedTotalFils)} KWD.`
+            : 'No approved budget yet.'}
+      </span>
+      <span className="spacer" />
+      {s.editable && (
+        <a href={edit}>
+          {latest?.status === 'REJECTED'
+            ? 'Correct and resubmit'
+            : s.approved.length
+              ? 'Propose a change'
+              : 'Set up budget'}
+        </a>
+      )}
+    </p>
+  );
+}
+
 function Boq(props: { projectId: string }) {
   const { projectId } = props;
   const [attentionFirst, setAttentionFirst] = useState(false);
@@ -135,9 +179,7 @@ function Boq(props: { projectId: string }) {
       [projectId, attentionFirst],
     ),
   );
-  const [editing, setEditing] = useState<BoqRow | null>(null);
   const [adding, setAdding] = useState(false);
-  const close = useCallback(() => setEditing(null), []);
   const closeAdd = useCallback(() => setAdding(false), []);
   if (!boq.data) return <ErrorText message={boq.error} />;
   return (
@@ -163,7 +205,8 @@ function Boq(props: { projectId: string }) {
           </button>
         )}
       </div>
-      <BoqTable boq={boq.data} onEdit={setEditing} projectId={projectId} />
+      <BudgetStatus projectId={projectId} />
+      <BoqTable boq={boq.data} projectId={projectId} />
       {adding && (
         <SlideOver title="Add expense" onClose={closeAdd} sheet>
           <ExpenseForm
@@ -175,60 +218,7 @@ function Boq(props: { projectId: string }) {
           />
         </SlideOver>
       )}
-      {editing && (
-        <SlideOver title={`Budget: ${editing.costHead.code}`} onClose={close} sheet>
-          <BudgetForm
-            projectId={projectId}
-            row={editing}
-            onSaved={() => {
-              close();
-              boq.reload();
-            }}
-          />
-        </SlideOver>
-      )}
     </>
-  );
-}
-
-function BudgetForm(props: { projectId: string; row: BoqRow; onSaved: () => void }) {
-  const { row } = props;
-  const [text, setText] = useState(row.metrics.budget === 0 ? '' : formatFils(row.metrics.budget));
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const amount = parseKwdInput(text);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (amount === null) return;
-    setBusy(true);
-    const err = await attempt(() =>
-      setEstimates(props.projectId, {
-        estimates: [{ costHeadId: row.costHead.id, amountFils: amount }],
-      }),
-    );
-    setBusy(false);
-    if (err) setError(err);
-    else props.onSaved();
-  };
-
-  return (
-    <form className="form" onSubmit={submit}>
-      <p>{row.costHead.name}</p>
-      <label>
-        Budget (KWD)
-        <input
-          className={amount === null ? 'amount invalid' : 'amount'}
-          inputMode="decimal"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </label>
-      <ErrorText message={error ?? (amount === null ? 'Enter an amount of zero or more' : null)} />
-      <button className="btn-primary" type="submit" disabled={busy || amount === null}>
-        Save budget
-      </button>
-    </form>
   );
 }
 

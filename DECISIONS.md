@@ -313,3 +313,21 @@ The owner asked for the app to resemble `BT-Rajan/almailam-roadmap-ui`, in its l
 - **Fonts are self-hosted** (`@fontsource`, Latin subset only), because the CSP allows fonts from our own origin only. Icons come from `lucide-react`, the React build of the roadmap's icon set.
 - **The sidebar shows from 1280 px wide.** Narrower screens, iPads included, get a menu button and a drawer, so the money tables keep the full width the landscape iPad checks require.
 - **Not done yet:** the other pages (projects, BoQ, cost head, approvals, administration) take on the new colours, fonts and cards through the shared styles, but keep their own layouts.
+
+## D31. Budgets are approved by an administrator, and frozen once approved
+A project's cost structure (which cost heads apply, and the estimate for each) is proposed by a member and approved by an administrator. This applies when a project is first set up and to every later change.
+- **One approval system.** A budget request is a second kind of row in `approvals` (`kind = BUDGET`, migration 0015). It uses the same state machine (`domain/approval-status`), `approval_actions` history, audit events, approve and reject routes, `approval.decide` permission and no-self-approval rule as spend approval.
+- **Request lines.** The heads and amounts are stored head by head in `approval_budget_lines` (append-only):
+  - `approved_fils`: the approved estimate when the request was made; empty when the head is being added.
+  - `amount_fils`: the proposed estimate; empty when the head is being removed.
+  So every request records what changed, the previous approved value and the proposed value. With the approval's requester, decider and timestamps, that is the full audit record.
+- **The approved budget stays `project_estimates`**, the only figures the BoQ, dashboard and spend control read. Only an approval writes it, in one transaction:
+  - the proposed amounts are written;
+  - removed heads are deleted;
+  - each change is audited (`estimate.changed` / `estimate.removed`).
+  Approval is refused if the approved budget moved after the request; reject it and resubmit.
+- **Frozen.** Normal users cannot edit the approved budget. `PUT /api/projects/:id/estimates` now needs `approval.decide`, so only administrators can make direct corrections, which are audited. The UI no longer offers a per-head budget edit.
+- **Changes are proposals.** Proposing the whole structure again expresses every supported change: add a head, change an estimate, or remove a head (by leaving it out). One budget request may wait per project, enforced by a unique key, so changes cannot conflict. A request that changes nothing is refused.
+- **Expense protection.** A head with expenses (posted or awaiting approval, reversals included) cannot be removed. The server refuses this when the request is submitted and again when it is approved; the UI keeps such heads ticked and locked. Their estimates can still change.
+- **Existing projects** keep their estimates as their approved budget. Nothing is rewritten and no approval is forced on them.
+- **The flow:** Details, Select costs (two-column checkboxes, showing the C number and name), Enter estimates (tap a row; amounts in KWD are exact, and more than 3 decimals is refused, not rounded), Submit, then approval. The project page shows the approved, waiting or rejected state, with a link to propose a change or to correct and resubmit. Approvals has a Budgets tab showing each head's approved and proposed values, with totals.

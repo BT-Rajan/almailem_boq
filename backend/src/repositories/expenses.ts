@@ -216,6 +216,19 @@ export function expensesRepository(db: Db) {
     /**
      * Actual per cost head: the sum of the expenses that count toward Actual (countsTowardActual).
      */
+    /**
+     * Heads of a project with expenses against them (posted or awaiting approval, reversals
+     * included): they cannot be removed from the project's budget.
+     */
+    async headsWithExpenses(projectId: string): Promise<Set<string>> {
+      const rows = await selectRows(
+        db,
+        `SELECT DISTINCT cost_head_id FROM expenses
+          WHERE project_id = ? AND status IN ('POSTED', 'PENDING_APPROVAL')`,
+        [projectId],
+      );
+      return new Set(rows.map((r) => str(r, 'cost_head_id')));
+    },
     async actualsByHead(projectId: string): Promise<Map<string, Fils>> {
       const rows = await selectRows(
         db,

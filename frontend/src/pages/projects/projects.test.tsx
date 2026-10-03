@@ -58,12 +58,12 @@ describe('Create project (step 1: details)', () => {
     });
     render(<CreateProjectPage />);
     expect(screen.getByRole('list', { name: 'Steps' }).textContent).toBe(
-      '1. Details2. BoQ3. Review',
+      '1. Details2. Select costs3. Enter estimates4. Submit',
     );
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'ALM-1' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tower' } });
     fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-01-31' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
     await waitFor(() => expect(window.location.hash).toBe(`#/projects/${ID}/setup/boq`));
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
       code: 'ALM-1',
@@ -85,7 +85,7 @@ describe('Create project (step 1: details)', () => {
     render(<CreateProjectPage />);
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Project already exists');
   });
 });
@@ -142,7 +142,7 @@ describe('validation messages', () => {
     render(<CreateProjectPage />);
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'X' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Y' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next: BoQ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Select costs' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Invalid input: End date must be after the start date',
     );

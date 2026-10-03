@@ -78,7 +78,7 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
       .data as {
       id: string;
     };
-    await call(pm, 'PUT', `/api/projects/${p.id}/estimates`, {
+    await call(admin, 'PUT', `/api/projects/${p.id}/estimates`, {
       estimates: [{ costHeadId: h1.id, amountFils: 1_000_000 }],
     });
     await call(pm, 'PUT', `/api/projects/${p.id}/members/${accountantId}`);
@@ -293,7 +293,7 @@ describe.skipIf(!hasTestDb)('expenses, reversals and attachments (real MariaDB)'
 
     it('moving to another head moves the spend', async () => {
       const p = await newProject();
-      await call(pm, 'PUT', `/api/projects/${p}/estimates`, {
+      await call(admin, 'PUT', `/api/projects/${p}/estimates`, {
         estimates: [{ costHeadId: h2.id, amountFils: 1_000 }],
       });
       const e = await addOk(p, { amountFils: 70 });

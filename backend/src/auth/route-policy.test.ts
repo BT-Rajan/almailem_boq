@@ -23,12 +23,14 @@ const POLICY: [string, string][] = [
   ['GET /api/admin/users', 'admin.users.manage'],
   ['GET /api/admin/users/:userId', 'admin.users.manage'],
   ['GET /api/approvals', 'approval.decide'],
+  ['GET /api/approvals/cost-structures', 'approval.decide'],
   ['GET /api/auth/me', 'signed-in'],
   ['GET /api/dashboard', 'project.view'],
   ['GET /api/health', 'public'],
   ['GET /api/projects', 'project.view'],
   ['GET /api/projects/:projectId', 'project.view + project member'],
   ['GET /api/projects/:projectId/boq', 'project.view + project member'],
+  ['GET /api/projects/:projectId/cost-structure', 'project.view + project member'],
   ['GET /api/projects/:projectId/cost-heads/:costHeadId', 'expense.view + project member'],
   [
     'GET /api/projects/:projectId/cost-heads/:costHeadId/projection',
@@ -51,6 +53,7 @@ const POLICY: [string, string][] = [
   ['POST /api/auth/login', 'public'],
   ['POST /api/auth/logout', 'signed-in'],
   ['POST /api/projects', 'project.create'],
+  ['POST /api/projects/:projectId/cost-structure/proposals', 'estimate.edit + project member'],
   ['POST /api/projects/:projectId/expenses', 'expense.create + project member'],
   [
     'POST /api/projects/:projectId/expenses/:expenseId/cancel-approval',
@@ -62,7 +65,7 @@ const POLICY: [string, string][] = [
   ['PUT /api/admin/cost-heads/order', 'admin.costheads.manage'],
   ['PUT /api/admin/users/:userId/projects/:projectId', 'admin.users.manage'],
   ['PUT /api/admin/users/:userId/roles/:roleId', 'admin.users.manage'],
-  ['PUT /api/projects/:projectId/estimates', 'estimate.edit + project member'],
+  ['PUT /api/projects/:projectId/estimates', 'approval.decide + project member'],
   ['PUT /api/projects/:projectId/expenses/:expenseId/attachment', 'expense.edit + project member'],
   ['PUT /api/projects/:projectId/members/:userId', 'project.members.manage + project member'],
 ];

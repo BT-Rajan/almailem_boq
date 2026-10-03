@@ -26,7 +26,9 @@ export function registerEstimateRoutes(app: FastifyInstance, deps: { pool: DbPoo
 
   app.put(
     '/api/projects/:projectId/estimates',
-    { onRequest: [authenticate, authorize('estimate.edit'), authorizeProjectAccess()] },
+    // Writing the approved budget directly is for administrators (the approvers). Everyone else
+    // proposes a cost structure: POST /api/projects/:projectId/cost-structure/proposals.
+    { onRequest: [authenticate, authorize('approval.decide'), authorizeProjectAccess()] },
     async (request) => {
       const { projectId } = projectIdParamsSchema.parse(request.params);
       const body = setEstimatesRequestSchema.parse(request.body);

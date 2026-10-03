@@ -3,6 +3,7 @@ import type {
   ApprovalPage,
   ApprovalStatus,
   BudgetProjection,
+  BudgetProposal,
   ListApprovalsQuery,
 } from '@boq/shared';
 import { recordAudit } from '../audit/record-audit';
@@ -16,10 +17,12 @@ import {
 import { AppError } from '../errors/app-error';
 import {
   approvalsRepository,
+  budgetApprovalsRepository,
   expensesRepository,
   thresholdsRepository,
   type ApprovalRecord,
 } from '../repositories';
+import { createBudgetApprovalService } from './budget-approvals';
 import { loadBoq } from './estimates';
 import { lockOpenProject, lockProject, projectOnto, projectSpend } from './spend';
 
@@ -177,6 +180,19 @@ export function createApprovalService(pool: DbPool) {
     return toItem(updated, null);
   }
 
+  /** The same approve and reject for both kinds of request: spend here, budgets in their service. */
+  async function decideAnyKind(
+    actor: { userId: string },
+    approvalId: string,
+    to: 'APPROVED' | 'REJECTED',
+    comment: string | null,
+  ): Promise<ApprovalItem | BudgetProposal> {
+    if ((await budgetApprovalsRepository(pool).kindOf(approvalId)) === 'BUDGET') {
+      return createBudgetApprovalService(pool).decide(actor, approvalId, to, comment);
+    }
+    return decide(actor, approvalId, to, comment);
+  }
+
   /** Approve or reject. Re-evaluated now with the control engine: the budget may have changed. */
   async function decide(
     actor: { userId: string },
@@ -228,11 +244,11 @@ export function createApprovalService(pool: DbPool) {
     },
 
     approve(actor: { userId: string }, approvalId: string, comment: string | null) {
-      return decide(actor, approvalId, 'APPROVED', comment);
+      return decideAnyKind(actor, approvalId, 'APPROVED', comment);
     },
 
     reject(actor: { userId: string }, approvalId: string, comment: string) {
-      return decide(actor, approvalId, 'REJECTED', comment);
+      return decideAnyKind(actor, approvalId, 'REJECTED', comment);
     },
 
     /** The requester withdraws a request that is still waiting. The expense stays out of Actual. */

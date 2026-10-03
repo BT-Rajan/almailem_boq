@@ -52,6 +52,14 @@ export function BoqTable(props: {
                 <StatusDot status={r.status} />
               </td>
               <td className="num">
+                {!onEdit && projectId && (
+                  <a
+                    href={`#/projects/${projectId}/heads/${r.costHead.id}`}
+                    aria-label={`Open ${r.costHead.systemNo}`}
+                  >
+                    Open
+                  </a>
+                )}
                 {onEdit && boq.editable && (
                   <button
                     type="button"

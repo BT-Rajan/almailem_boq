@@ -22,9 +22,11 @@ const ALL = [
   '0012_search_indexes',
   '0013_approvals',
   '0014_system_numbers',
+  '0015_budget_approvals',
 ];
 const APP_TABLES = [
   'approval_actions',
+  'approval_budget_lines',
   'approvals',
   'audit_log',
   'budget_thresholds',
@@ -88,10 +90,12 @@ describe.skipIf(!hasTestDb)('migrator (real MariaDB)', () => {
   it('rolls back one step at a time, newest first', async () => {
     const db = await fresh();
     await migrateUp(db.url, MIGRATIONS_DIR);
-    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual(['0014_system_numbers']);
+    expect((await migrateDown(db.url, MIGRATIONS_DIR)).rolledBack).toEqual([
+      '0015_budget_approvals',
+    ]);
     const t = await tables(db);
-    expect(t).not.toContain('system_counters'); // only the newest step went
-    expect(t).toContain('approvals');
+    expect(t).not.toContain('approval_budget_lines'); // only the newest step went
+    expect(t).toContain('system_counters');
   });
 
   it('refuses to run when an applied migration was edited', async () => {

@@ -13,3 +13,12 @@ export function parseKwdInput(text: string): Fils | null {
     return null;
   }
 }
+
+/**
+ * Like parseKwdInput, but never alters what was typed: more than 3 decimals (finer than a fils)
+ * is refused instead of rounded, and an empty entry is no amount at all. For budget estimates.
+ */
+export function parseExactKwdInput(text: string): Fils | null {
+  if (!text.trim() || /\.\d{4,}/.test(text)) return null;
+  return parseKwdInput(text);
+}
